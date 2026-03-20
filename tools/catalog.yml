@@ -186,4 +186,9 @@ tools:
     enabled: true
     default_configuration: Release
     version_strategy: tag_then_commit
+  - id: sharpmove
+    repo_url: https://github.com/0xthirteen/SharpMove
+    enabled: true
+    default_configuration: Release
+    version_strategy: tag_then_commit
 
