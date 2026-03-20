@@ -171,4 +171,9 @@ tools:
     enabled: true
     default_configuration: Release
     version_strategy: tag_then_commit
+  - id: nopowershell
+    repo_url: https://github.com/bitsadmin/nopowershell
+    enabled: true
+    default_configuration: Release
+    version_strategy: tag_then_commit
 
