@@ -1,7 +1,5 @@
 # forge
 
-Forked from [azomaxx/mister](https://github.com/azomaxx/mister)
-
 `forge` builds .NET tooling repositories with GitHub Actions and stores completed outputs in GitHub Releases.
 
 ## What It Does
