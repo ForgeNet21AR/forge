@@ -68,20 +68,29 @@ const knownTools = catalog.filter((entry) => entry.enabled);
       return match ? match[1] : "";
     }
 
+    function formatSize(bytes: number): string {
+      if (bytes < 1024 * 1024) {
+        return `${(bytes / 1024).toFixed(1)} KB`;
+      }
+      return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+    }
+
+    function isExeAsset(name: string): boolean {
+      return name.endsWith(".exe") || name.endsWith(".EXE");
+    }
+
     function renderReleases(releases: Release[], searchTerm: string = "") {
       let filtered = releases;
 
       if (activeFilter) {
         filtered = filtered.filter((r) => {
           const toolId = extractToolId(r.tag);
-          const entry = document.querySelector(`[data-result-repo]`);
           const pills = pillContainer?.querySelectorAll("[data-result-repo]");
           if (pills) {
             for (const pill of pills) {
               const repo = (pill as HTMLElement).dataset.resultRepo;
               if (repo === activeFilter) {
-                const pillToolId = pill.textContent;
-                return toolId === pillToolId;
+                return toolId === pill.textContent;
               }
             }
           }
@@ -104,41 +113,29 @@ const knownTools = catalog.filter((entry) => entry.enabled);
         return;
       }
 
-      resultsList.innerHTML = filtered
-        .map((release) => {
+      resultsList.innerHTML = `<div class="release-grid">${filtered.map((release) => {
           const toolId = extractToolId(release.tag);
           return `
-            <article class="result-card">
-              <div class="split">
-                <div>
-                  <strong>${release.name ?? release.tag}</strong>
-                  <div class="muted" style="font-size: 0.85rem; margin-top: 0.25rem;">${toolId}</div>
-                </div>
-                <span class="status success">${release.assets.length} assets</span>
+            <article class="release-card">
+              <div class="release-card-top">
+                <strong class="release-tool">${toolId}</strong>
+                <span class="status success">${release.assets.length}</span>
               </div>
-              <div class="pill-list" style="margin-top: 0.75rem;">
+              <div class="release-tag">${release.name ?? release.tag}</div>
+              <div class="release-assets">
                 ${release.assets
-                  .map((asset) => {
-                    const sizeInBytes = asset.size;
-                    let sizeDisplay: string;
-                    if (sizeInBytes < 1024 * 1024) {
-                      sizeDisplay = `${(sizeInBytes / 1024).toFixed(1)} KB`;
-                    } else {
-                      sizeDisplay = `${(sizeInBytes / 1024 / 1024).toFixed(1)} MB`;
-                    }
-                    return `
-                      <a class="button secondary asset-button" href="/api/releases/asset?tag=${encodeURIComponent(release.tag)}&name=${encodeURIComponent(asset.name)}">
-                        <span class="asset-name">${asset.name}</span>
-                        <span class="asset-size">${sizeDisplay}</span>
-                      </a>
-                    `;
-                  })
+                  .map((asset) => `
+                    <a class="release-asset-link" href="/api/releases/asset?tag=${encodeURIComponent(release.tag)}&name=${encodeURIComponent(asset.name)}">
+                      <span class="release-asset-name">${asset.name}</span>
+                      <span class="asset-size">${formatSize(asset.size)}</span>
+                    </a>
+                  `)
                   .join("")}
               </div>
             </article>
           `;
         })
-        .join("");
+        .join("")}</div>`;
     }
 
     async function loadResults(repoUrl = "") {

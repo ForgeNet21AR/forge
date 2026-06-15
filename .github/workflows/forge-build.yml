@@ -54,7 +54,7 @@ on:
         description: Build output type
         required: false
         type: choice
-        default: bundle
+        default: both
         options:
           - bundle
           - standalone
@@ -105,7 +105,7 @@ on:
       build_type:
         required: false
         type: string
-        default: bundle
+        default: both
 
 permissions:
   contents: write
@@ -410,6 +410,10 @@ jobs:
             fi
           fi
           echo "is_sdk_style=$is_sdk_style" >> "$GITHUB_OUTPUT"
+
+          if [ "$is_sdk_style" != "true" ] && [ "${{ inputs.build_type }}" != "bundle" ]; then
+            echo "- Standalone publish: skipped (project type is not SDK-style)" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
           is_solution=false
           if echo "$project_path" | grep -qiE '\.sln$'; then
@@ -792,16 +796,26 @@ jobs:
           "bundle_path=$bundlePath" >> $env:GITHUB_OUTPUT
 
           $standaloneDir = "${{ github.workspace }}\out-standalone"
-          $standaloneBundlePath = $null
+          $standaloneAssetPath = $null
+          $directExe = $null
           if (Test-Path $standaloneDir) {
-            $standaloneBundlePath = Join-Path "${{ github.workspace }}" "${assetPrefix}_standalone.zip"
-            if (Test-Path $standaloneBundlePath) { Remove-Item $standaloneBundlePath -Force }
-            Compress-Archive -Path (Join-Path $standaloneDir '*') -DestinationPath $standaloneBundlePath
-            "standalone_bundle_path=$standaloneBundlePath" >> $env:GITHUB_OUTPUT
+            $files = @(Get-ChildItem -Path $standaloneDir -File)
+            if ($files.Count -eq 1 -and $files[0].Extension -eq '.exe') {
+              $directExe = Join-Path "${{ github.workspace }}" "${assetPrefix}.exe"
+              Copy-Item $files[0].FullName $directExe
+              "standalone_exe_path=$directExe" >> $env:GITHUB_OUTPUT
+              $standaloneAssetPath = $directExe
+            } else {
+              $standaloneBundlePath = Join-Path "${{ github.workspace }}" "${assetPrefix}_standalone.zip"
+              if (Test-Path $standaloneBundlePath) { Remove-Item $standaloneBundlePath -Force }
+              Compress-Archive -Path (Join-Path $standaloneDir '*') -DestinationPath $standaloneBundlePath
+              "standalone_bundle_path=$standaloneBundlePath" >> $env:GITHUB_OUTPUT
+              $standaloneAssetPath = $standaloneBundlePath
+            }
           }
 
           $assets = @("$bundlePath")
-          if ($standaloneBundlePath) { $assets += $standaloneBundlePath }
+          if ($standaloneAssetPath) { $assets += $standaloneAssetPath }
           "asset_paths=$($assets -join ';')" >> $env:GITHUB_OUTPUT
 
       - name: Publish release assets

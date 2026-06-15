@@ -25,14 +25,6 @@ const catalogPreview = catalog
         </svg>
         <span>Builds are cached. If a release exists, your build is skipped.</span>
       </div>
-      <div class="warning-banner" style="margin-top: 0.75rem;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-          <line x1="12" y1="9" x2="12" y2="13"></line>
-          <line x1="12" y1="17" x2="12.01" y2="17"></line>
-        </svg>
-        <span>20 builds per hour per IP.</span>
-      </div>
     </section>
     <aside class="panel stats">
       <div class="stat">
@@ -41,7 +33,7 @@ const catalogPreview = catalog
       </div>
       <div class="stat">
         <strong>Open</strong>
-        <span class="muted">Anyone can trigger builds. Use responsibly.</span>
+        <span class="muted">Anyone can trigger builds.</span>
       </div>
       <div class="stat">
         <strong>GitHub</strong>
@@ -90,7 +82,7 @@ const catalogPreview = catalog
               <input id="advanced-toggle" type="checkbox" />
               <span>
                 <strong>Advanced settings</strong>
-                <small>Project path, framework, build type, and asset filters.</small>
+                <small>Project path, configuration, and framework overrides.</small>
               </span>
             </label>
             <label class="toggle-card" for="force-rebuild">
@@ -116,30 +108,6 @@ const catalogPreview = catalog
             <div class="field">
               <label for="framework">Target framework</label>
               <input id="framework" placeholder="net462" />
-            </div>
-
-            <div class="field">
-              <label for="build-type">Build output type</label>
-              <select id="build-type">
-                <option value="bundle">Bundle</option>
-                <option value="standalone">Standalone</option>
-                <option value="both">Both</option>
-              </select>
-            </div>
-
-            <div class="field">
-              <label for="version-label">Custom release label</label>
-              <input id="version-label" placeholder="Leave empty unless you need a custom label" />
-            </div>
-
-            <div class="field">
-              <label for="asset-include">Asset include filter</label>
-              <input id="asset-include" placeholder="exe,dll" />
-            </div>
-
-            <div class="field">
-              <label for="asset-exclude">Asset exclude filter</label>
-              <input id="asset-exclude" placeholder="resources.dll" />
             </div>
           </div>
 
@@ -357,17 +325,10 @@ const catalogPreview = catalog
         fillField("project-path", data.profile?.project_path ?? "");
         fillField("configuration", data.profile?.configuration ?? "Release");
         fillField("framework", data.profile?.target_framework ?? "");
-        const bt = document.querySelector("#build-type") as HTMLSelectElement;
-        if (bt && data.profile?.build_type) bt.value = data.profile.build_type;
-        fillField("asset-include", (data.profile?.asset_include ?? []).join(","));
-        fillField("asset-exclude", (data.profile?.asset_exclude ?? []).join(","));
 
         const shouldOpenAdvanced = Boolean(
           data.profile?.project_path ||
           data.profile?.target_framework ||
-          data.profile?.build_type ||
-          (data.profile?.asset_include ?? []).length ||
-          (data.profile?.asset_exclude ?? []).length ||
           (data.profile?.restore_mode && data.profile.restore_mode !== "auto") ||
           (data.profile?.build_mode && data.profile.build_mode !== "auto"),
         );
@@ -401,10 +362,6 @@ const catalogPreview = catalog
         project_path: (document.querySelector("#project-path") as HTMLInputElement).value.trim(),
         configuration: (document.querySelector("#configuration") as HTMLInputElement).value.trim(),
         target_framework: (document.querySelector("#framework") as HTMLInputElement).value.trim(),
-        build_type: (document.querySelector("#build-type") as HTMLSelectElement).value,
-        version_override: (document.querySelector("#version-label") as HTMLInputElement).value.trim(),
-        asset_include: (document.querySelector("#asset-include") as HTMLInputElement).value.trim(),
-        asset_exclude: (document.querySelector("#asset-exclude") as HTMLInputElement).value.trim(),
         force_rebuild: (document.querySelector("#force-rebuild") as HTMLInputElement).checked,
       };
 

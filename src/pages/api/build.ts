@@ -67,7 +67,7 @@ export async function POST(context: APIContext) {
       configuration: String(body.configuration ?? ""),
       target_framework: String(body.target_framework ?? ""),
       version_override: String(body.version_override ?? ""),
-      build_type: String(body.build_type ?? "bundle"),
+      build_type: String(body.build_type ?? "both"),
       asset_include: String(body.asset_include ?? ""),
       asset_exclude: String(body.asset_exclude ?? ""),
       force_rebuild: String(Boolean(body.force_rebuild)),
