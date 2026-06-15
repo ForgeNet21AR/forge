@@ -317,8 +317,8 @@ jobs:
           has_cpp=false
 
           dotnet_files="$(list_files ".csproj" "")
-$(list_files ".sln" "")
-$(list_files ".vbproj" "")"
+          $(list_files ".sln" "")
+          $(list_files ".vbproj" "")"
           if echo "$dotnet_files" | grep -qE '\.(csproj|sln|vbproj)$'; then
             has_dotnet=true
           fi
