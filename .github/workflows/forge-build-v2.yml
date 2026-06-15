@@ -142,6 +142,7 @@ jobs:
       restore_mode: ${{ steps.detect.outputs.restore_mode }}
       build_mode: ${{ steps.detect.outputs.build_mode }}
       is_sdk_style: ${{ steps.detect.outputs.is_sdk_style }}
+      required_sdk: ${{ steps.detect.outputs.required_sdk }}
       resolved_commit: ${{ steps.meta.outputs.resolved_commit }}
       short_commit: ${{ steps.meta.outputs.short_commit }}
       resolved_tag: ${{ steps.meta.outputs.resolved_tag }}
@@ -401,12 +402,39 @@ jobs:
           fi
           echo "build_mode=$build_mode" >> "$GITHUB_OUTPUT"
 
+          # Detect required .NET SDK version
+          required_sdk=""
+          if [ "$is_sdk_style" = "true" ] && [ -n "$project_path" ] && [ -f "$project_path" ]; then
+            tfms="$(grep -oP '<TargetFramework[^>]*>\s*net\d+\.\d+\s*</TargetFramework>' "$project_path" 2>/dev/null | grep -oP 'net\d+\.\d+' || true)"
+            if [ -z "$tfms" ]; then
+              tfms="$(grep -oP '<TargetFrameworks[^>]*>\s*([^<]+)\s*</TargetFrameworks>' "$project_path" 2>/dev/null | grep -oP 'net\d+\.\d+' || true)"
+            fi
+            if [ -n "$tfms" ]; then
+              highest="$(echo "$tfms" | tr ' ' '\n' | sort -V | tail -n 1)"
+              case "$highest" in
+                net6.0) required_sdk="6.0.x" ;;
+                net7.0) required_sdk="7.0.x" ;;
+                net8.0) required_sdk="8.0.x" ;;
+                net9.0) required_sdk="9.0.x" ;;
+                *)     required_sdk="8.0.x" ;;
+              esac
+            else
+              required_sdk="8.0.x"
+            fi
+          fi
+          echo "required_sdk=$required_sdk" >> "$GITHUB_OUTPUT"
+
           {
             echo "### Detected project"
             echo "- project: $project_path"
             echo "- restore mode: $restore_mode"
             echo "- build mode: $build_mode"
             echo "- SDK-style: $is_sdk_style"
+            if [ -n "$required_sdk" ]; then
+              echo "- required SDK: $required_sdk"
+            else
+              echo "- required SDK: none (MSBuild only)"
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
   build:
@@ -431,12 +459,10 @@ jobs:
         uses: NuGet/setup-nuget@v2
 
       - name: Setup .NET SDK
+        if: needs.preflight.outputs.required_sdk != ''
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: |
-            6.0.x
-            7.0.x
-            8.0.x
+          dotnet-version: ${{ needs.preflight.outputs.required_sdk }}
 
       - name: Clone target repository
         working-directory: ${{ github.workspace }}
@@ -582,10 +608,6 @@ jobs:
               $buildMode = "project_redirect_output"
             }
           }
-
-          $isSdkStyle = "${{ needs.preflight.outputs.is_sdk_style }}" -eq "true"
-          $buildType = "${{ inputs.build_type }}"
-          if ([string]::IsNullOrWhiteSpace($buildType)) { $buildType = "bundle" }
 
           $msbuildArgs = @(
             $projectFile,
