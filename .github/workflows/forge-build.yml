@@ -252,7 +252,7 @@ jobs:
           echo "- release tag: $release_tag" >> "$GITHUB_STEP_SUMMARY"
           echo "- version label: $version_label" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Detect project via API
+      - name: Clone and detect project
         id: detect
         run: |
           set -euo pipefail
@@ -260,57 +260,23 @@ jobs:
           repo_url="${{ steps.resolve.outputs.repo_url }}"
           resolved_commit="${{ steps.meta.outputs.resolved_commit }}"
 
-          owner_repo="$(echo "$repo_url" | sed -n 's|https://github.com/||p' | sed 's|/$||')"
-          owner="$(echo "$owner_repo" | cut -d/ -f1)"
-          repo="$(echo "$owner_repo" | cut -d/ -f2)"
-          repo_name="$repo"
+          repo_name="$(echo "$repo_url" | sed -n 's|https://github.com/.*/||p')"
 
-          # Fetch full file tree via API
-          tree_json="$(gh api "repos/$owner/$repo/git/trees/$resolved_commit?recursive=1" 2>/dev/null || true)"
+          git clone --filter=blob:none "$repo_url" target
+          cd target
 
-          if [ -z "$tree_json" ]; then
-            echo "### API tree fetch failed, falling back to git clone" >> "$GITHUB_STEP_SUMMARY"
-            git clone --filter=blob:none "$repo_url" target
-            cd target
-            tree_json='{"tree": []}'
-            local_clone=true
-          else
-            local_clone=false
-          fi
-
-          # Helper: list files matching pattern
           list_files() {
             local pattern="$1"
             local exclude="$2"
-            if [ "$local_clone" = true ]; then
-              if [ -n "$exclude" ]; then
-                find . -name "*$pattern" ! -iname "*$exclude*" | sort | sed 's|^\./||'
-              else
-                find . -name "*$pattern" | sort | sed 's|^\./||'
-              fi
+            if [ -n "$exclude" ]; then
+              find . -name "*$pattern" ! -iname "*$exclude*" | sort | sed 's|^\./||'
             else
-              if [ -n "$exclude" ]; then
-                echo "$tree_json" | jq -r --arg pat "$pattern" --arg excl "$exclude" \
-                  '.tree[] | select(.type == "blob") | select(.path | endswith($pat)) | select(.path | test($excl; "i") | not) | .path' | sort
-              else
-                echo "$tree_json" | jq -r --arg pat "$pattern" \
-                  '.tree[] | select(.type == "blob") | select(.path | endswith($pat)) | .path' | sort
-              fi
+              find . -name "*$pattern" | sort | sed 's|^\./||'
             fi
           }
 
-          # Helper: read file content
           read_file() {
-            local path="$1"
-            if [ "$local_clone" = true ]; then
-              cat "$path" 2>/dev/null || true
-            else
-              local blob_sha
-              blob_sha="$(echo "$tree_json" | jq -r --arg p "$path" '.tree[] | select(.path == $p) | .sha' | head -n 1)"
-              if [ -n "$blob_sha" ]; then
-                gh api "repos/$owner/$repo/git/blobs/$blob_sha" --jq '.content' 2>/dev/null | base64 -d 2>/dev/null || true
-              fi
-            fi
+            cat "$1" 2>/dev/null || true
           }
 
           has_dotnet=false
@@ -331,6 +297,7 @@ jobs:
             echo "### Validation Failed" >> "$GITHUB_STEP_SUMMARY"
             echo "- No .csproj, .sln, .vbproj, or .vcxproj files found" >> "$GITHUB_STEP_SUMMARY"
             echo "- Forge only builds .NET/C# projects" >> "$GITHUB_STEP_SUMMARY"
+            cd .. && rm -rf target
             exit 0
           fi
 
@@ -339,6 +306,7 @@ jobs:
             echo "### Validation Failed" >> "$GITHUB_STEP_SUMMARY"
             echo "- Only C++ (.vcxproj) projects found, no .NET projects (.csproj/.sln/.vbproj)" >> "$GITHUB_STEP_SUMMARY"
             echo "- Forge only builds .NET/C# projects" >> "$GITHUB_STEP_SUMMARY"
+            cd .. && rm -rf target
             exit 0
           fi
 
@@ -350,14 +318,13 @@ jobs:
 
           project_path=""
           if [ -n "$manual_path" ]; then
-            if [ "$local_clone" = true ] && [ -f "$manual_path" ]; then
-              project_path="$manual_path"
-            elif [ "$local_clone" = false ] && echo "$dotnet_files" | grep -qxF "$manual_path"; then
+            if [ -f "$manual_path" ]; then
               project_path="$manual_path"
             else
               echo "skip_build=true" >> "$GITHUB_OUTPUT"
               echo "### Provided project_path not found" >> "$GITHUB_STEP_SUMMARY"
               echo "- $manual_path" >> "$GITHUB_STEP_SUMMARY"
+              cd .. && rm -rf target
               exit 0
             fi
           else
@@ -392,11 +359,13 @@ jobs:
                 echo "skip_build=true" >> "$GITHUB_OUTPUT"
                 echo "### No .sln or .csproj files found" >> "$GITHUB_STEP_SUMMARY"
                 echo "- Supply project_path input or add a .sln/.csproj to the repository" >> "$GITHUB_STEP_SUMMARY"
+                cd .. && rm -rf target
                 exit 0
               else
                 echo "skip_build=true" >> "$GITHUB_OUTPUT"
                 echo "### Project auto-detection is ambiguous" >> "$GITHUB_STEP_SUMMARY"
                 echo "- Supply project_path input to disambiguate" >> "$GITHUB_STEP_SUMMARY"
+                cd .. && rm -rf target
                 exit 0
               fi
             fi
@@ -406,14 +375,8 @@ jobs:
 
           # Detect restore_mode
           has_packages_config=false
-          if [ "$local_clone" = true ]; then
-            if find . -name 'packages.config' | grep -q .; then
-              has_packages_config=true
-            fi
-          else
-            if echo "$tree_json" | jq -r '.tree[] | select(.type == "blob") | .path' | grep -q 'packages\.config'; then
-              has_packages_config=true
-            fi
+          if find . -name 'packages.config' | grep -q .; then
+            has_packages_config=true
           fi
 
           has_legacy_imports=false
@@ -499,8 +462,7 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-          # Final cleanup: remove local clone if used
-          [ "$local_clone" = true ] && rm -rf target
+          cd .. && rm -rf target
 
   build:
     needs: preflight
