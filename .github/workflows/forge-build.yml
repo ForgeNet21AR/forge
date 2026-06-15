@@ -186,10 +186,27 @@ jobs:
             fi
           fi
 
-          if ! git ls-files '*.csproj' '*.sln' '*.vbproj' | grep -qE '\.(csproj|sln|vbproj)$'; then
+          has_dotnet=false
+          has_cpp=false
+          if git ls-files '*.csproj' '*.sln' '*.vbproj' | grep -qE '\.(csproj|sln|vbproj)$'; then
+            has_dotnet=true
+          fi
+          if git ls-files '*.vcxproj' | grep -q '\.vcxproj$'; then
+            has_cpp=true
+          fi
+
+          if [ "$has_dotnet" = false ] && [ "$has_cpp" = false ]; then
             echo "skip_build=true" >> "$GITHUB_OUTPUT"
             echo "### Validation Failed" >> "$GITHUB_STEP_SUMMARY"
-            echo "- No .csproj, .sln, or .vbproj files found" >> "$GITHUB_STEP_SUMMARY"
+            echo "- No .csproj, .sln, .vbproj, or .vcxproj files found" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Forge only builds .NET/C# projects" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          if [ "$has_dotnet" = false ] && [ "$has_cpp" = true ]; then
+            echo "skip_build=true" >> "$GITHUB_OUTPUT"
+            echo "### Validation Failed" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Only C++ (.vcxproj) projects found, no .NET projects (.csproj/.sln/.vbproj)" >> "$GITHUB_STEP_SUMMARY"
             echo "- Forge only builds .NET/C# projects" >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
@@ -258,7 +275,7 @@ jobs:
   build:
     needs: preflight
     if: needs.preflight.outputs.skip_build != 'true'
-    runs-on: windows-latest
+    runs-on: windows-2022
     defaults:
       run:
         shell: pwsh
@@ -288,7 +305,7 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: |
           $url = "${{ needs.preflight.outputs.repo_url }}"
-          git clone $url target
+          git clone "$url" target
           if ($LASTEXITCODE -ne 0) { throw "Clone failed: $url" }
           Set-Location target
           git fetch --tags --force
@@ -417,35 +434,35 @@ jobs:
 
           switch ($restoreMode) {
             "legacy_nuget" {
-              nuget restore $restoreTarget -NonInteractive -PackagesDirectory $packagesDir -SolutionDirectory $repoRoot
+              nuget restore "$restoreTarget" -NonInteractive -PackagesDirectory "$packagesDir" -SolutionDirectory "$repoRoot"
               if ($LASTEXITCODE -ne 0) { throw "NuGet restore failed" }
             }
             "legacy_nuget_strict" {
-              nuget restore $restoreTarget -NonInteractive -PackagesDirectory $packagesDir -SolutionDirectory $repoRoot
+              nuget restore "$restoreTarget" -NonInteractive -PackagesDirectory "$packagesDir" -SolutionDirectory "$repoRoot"
               if ($LASTEXITCODE -ne 0) { throw "NuGet restore failed" }
 
               Get-ChildItem -Recurse -Filter packages.config | ForEach-Object {
-                nuget restore $_.FullName -NonInteractive -PackagesDirectory $packagesDir -SolutionDirectory $repoRoot
+                nuget restore "$($_.FullName)" -NonInteractive -PackagesDirectory "$packagesDir" -SolutionDirectory "$repoRoot"
                 if ($LASTEXITCODE -ne 0) { throw "packages.config restore failed: $($_.FullName)" }
               }
             }
             "msbuild_restore" {
-              msbuild $restoreTarget /t:Restore /p:RestorePackagesConfig=true /verbosity:minimal
+              msbuild "$restoreTarget" /t:Restore /p:RestorePackagesConfig=true /verbosity:minimal
               if ($LASTEXITCODE -ne 0) { throw "MSBuild restore failed" }
             }
             "dotnet_restore" {
-              dotnet restore $projectFile
+              dotnet restore "$projectFile"
               if ($LASTEXITCODE -ne 0) { throw "dotnet restore failed" }
             }
             default {
-              nuget restore $restoreTarget -NonInteractive -PackagesDirectory $packagesDir -SolutionDirectory $repoRoot
+              nuget restore "$restoreTarget" -NonInteractive -PackagesDirectory "$packagesDir" -SolutionDirectory "$repoRoot"
               if ($LASTEXITCODE -ne 0 -and $hasPackagesConfig) {
                 throw "NuGet restore failed"
               }
 
-              msbuild $restoreTarget /t:Restore /p:RestorePackagesConfig=true /verbosity:minimal
+              msbuild "$restoreTarget" /t:Restore /p:RestorePackagesConfig=true /verbosity:minimal
               if ($LASTEXITCODE -ne 0) {
-                dotnet restore $projectFile
+                dotnet restore "$projectFile"
                 if ($LASTEXITCODE -ne 0) { throw "Restore failed" }
               }
             }
@@ -565,7 +582,7 @@ jobs:
           foreach ($pattern in $includePatterns) {
             foreach ($root in ($searchRoots | Sort-Object -Unique)) {
               if (-not (Test-Path $root)) { continue }
-              Get-ChildItem $root -Recurse -File -Include $pattern | ForEach-Object {
+              Get-ChildItem "$root" -Recurse -File -Include $pattern | ForEach-Object {
                 $skip = $false
                 foreach ($exclude in $excludePatterns) {
                   if ($_.Name -like $exclude) {
@@ -574,7 +591,7 @@ jobs:
                   }
                 }
                 if (-not $skip) {
-                  Copy-Item $_.FullName $collect -Force
+                  Copy-Item "$($_.FullName)" "$collect" -Force
                   $copied += $_.Name
                 }
               }
@@ -645,16 +662,16 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $false
 
           if ("${{ inputs.force_rebuild }}" -eq "true") {
-            gh release delete $tag --repo "${{ github.repository }}" --yes --cleanup-tag *> $null
+            gh release delete "$tag" --repo "${{ github.repository }}" --yes --cleanup-tag *> $null
           }
 
-          gh release create $tag $bundle $metadata `
+          gh release create "$tag" "$bundle" "$metadata" `
             --repo "${{ github.repository }}" `
-            --title $name `
+            --title "$name" `
             --notes "Automated build for ${{ needs.preflight.outputs.repo_url }} @ ${{ needs.preflight.outputs.resolved_commit }}"
 
           if ($LASTEXITCODE -ne 0) {
-            gh release view $tag --repo "${{ github.repository }}" --json tagName *> $null
+            gh release view "$tag" --repo "${{ github.repository }}" --json tagName *> $null
             if ($LASTEXITCODE -eq 0) {
               Write-Host "Release already exists after publish attempt; treating as successful race winner"
               "Release publish raced with another run for $tag" >> $env:GITHUB_STEP_SUMMARY
@@ -720,7 +737,7 @@ jobs:
 
           $branch = "${{ github.ref_name }}"
           for ($i = 0; $i -lt 3; $i++) {
-            git fetch origin $branch
+            git fetch origin "$branch"
             if ($LASTEXITCODE -ne 0) { continue }
 
             git reset --hard "origin/$branch"
