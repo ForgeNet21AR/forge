@@ -139,7 +139,7 @@ jobs:
       release_name: ${{ steps.meta.outputs.release_name }}
       asset_prefix: ${{ steps.meta.outputs.asset_prefix }}
       build_key: ${{ steps.meta.outputs.build_key }}
-      skip_build: ${{ steps.meta.outputs.skip_build }}
+      skip_build: ${{ steps.detect.outputs.skip_build || steps.meta.outputs.skip_build }}
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -284,9 +284,9 @@ jobs:
             local exclude="$2"
             if [ "$local_clone" = true ]; then
               if [ -n "$exclude" ]; then
-                find . -name "$pattern" ! -iname "*$exclude*" | sort | sed 's|^\./||'
+                find . -name "*$pattern" ! -iname "*$exclude*" | sort | sed 's|^\./||'
               else
-                find . -name "$pattern" | sort | sed 's|^\./||'
+                find . -name "*$pattern" | sort | sed 's|^\./||'
               fi
             else
               if [ -n "$exclude" ]; then
