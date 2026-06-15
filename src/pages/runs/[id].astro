@@ -10,7 +10,7 @@ const { id } = Astro.params;
     <section class="panel">
       <p class="kicker">Run</p>
       <h1>Build status.</h1>
-      <p>Shows build progress and steps.</p>
+      <p>Build progress and job details.</p>
       <div class="inline-actions">
         <a class="button secondary" href="/runs">Back to runs</a>
         <a class="button ghost" href="/packages">Browse packages</a>
@@ -19,7 +19,7 @@ const { id } = Astro.params;
     <aside class="panel">
       <div class="stat">
         <strong>Run #{id}</strong>
-        <span class="muted">Auto-refreshes until done.</span>
+        <span class="muted" id="auto-refresh-note">Auto-refreshes while the run is active.</span>
       </div>
     </aside>
   </section>
@@ -27,85 +27,109 @@ const { id } = Astro.params;
   <section class="panel">
     <div class="toolbar">
       <h2 class="section-title">Status</h2>
-      <span class="muted" id="auto-refresh-note">Auto-refreshes while the run is active.</span>
     </div>
     <div id="run-status" class="empty">Loading run data…</div>
   </section>
 
   <script define:vars={{ id }}>
+    function statusClass(status, conclusion) {
+      if (conclusion === "failure") return "status fail";
+      if (conclusion === "success") return "status success";
+      if (status === "in_progress" || status === "queued") return "status pending";
+      return "status";
+    }
+
+    function formatTime(iso) {
+      if (!iso) return "";
+      const d = new Date(iso);
+      return d.toLocaleString();
+    }
+
     async function loadRun() {
       const target = document.querySelector("#run-status");
       const refreshNote = document.querySelector("#auto-refresh-note");
+
       try {
         const response = await fetch(`/api/runs/${id}`);
         if (!response.ok) {
           target.innerHTML = "<div class='empty'>Unable to load run.</div>";
           return;
         }
+
         const data = await response.json();
-        
         if (data.error) {
-          target.innerHTML = "<div class='empty'>Error: " + data.error + "</div>";
+          target.innerHTML = `<div class='empty'>Error: ${data.error}</div>`;
           return;
         }
-        
+
         const jobs = data.jobs || [];
-        
-        function getStatusClass(status, conclusion) {
-          if (conclusion === "failure") return "status fail";
-          if (conclusion === "success") return "status success";
-          if (status === "in_progress" || status === "queued") return "status pending";
-          return "status";
-        }
-        
-        const statusClass = getStatusClass(data.status, data.conclusion);
-        
-        // If only preflight job exists and status is completed, it was skipped (cache hit)
-        const wasSkipped = jobs.length === 1 && jobs[0].name && jobs[0].name.toLowerCase().includes("preflight") && data.status === "completed";
-        
+
+        const wasSkipped = jobs.length === 1 && jobs[0]?.name?.toLowerCase().includes("preflight") && data.status === "completed";
+        const buildJob = jobs.find((j) => j.name && j.name.toLowerCase().includes("build"));
+        const buildSkipped = !wasSkipped && data.conclusion === "success" && buildJob?.conclusion === "skipped";
+
         let statusMessage = data.conclusion || data.status;
-        if (wasSkipped) {
+        let isSkipped = false;
+        if (wasSkipped || buildSkipped) {
           statusMessage = "skipped (cache hit)";
-        } else if (data.conclusion === "success" && jobs.length > 1) {
-          // Check if build job was skipped even when there was a build job
-          const buildJob = jobs.find((j) => j.name && j.name.toLowerCase().includes("build"));
-          if (buildJob && buildJob.conclusion === "skipped") {
-            statusMessage = "skipped (cache hit)";
-          }
+          isSkipped = true;
         }
-        
-        const skippedNote = wasSkipped ? "<div class='info-banner' style='margin-bottom: 1rem; margin-top: 0.5rem;'><strong>Build was skipped</strong> - a release already exists for this ref. <a href='/packages' style='color: var(--accent-2);'>Check Packages</a> to download.</div>" : "";
-        const skippedClass = wasSkipped ? "status skipped" : statusClass;
-        
+
+        const sc = isSkipped ? "status skipped" : statusClass(data.status, data.conclusion);
+
         if (refreshNote) {
-          refreshNote.textContent = wasSkipped ? "No build needed." : "Auto-refreshes until done.";
+          refreshNote.textContent = isSkipped ? "No build needed." : "Auto-refreshes until done.";
         }
-        
-        let html = "<div class='log-card'><div class='split'><div><strong>" + (data.name || "Forge build") + "</strong>";
-        html += "<div class='muted'>";
-        if (data.html_url) {
-          html += "<a href='" + data.html_url + "' target='_blank' rel='noreferrer'>Open in GitHub</a> | ";
-        }
-        html += "<a href='/packages'>Browse Packages</a></div></div>";
-        html += "<span class='" + skippedClass + "'>" + statusMessage + "</span></div>" + skippedNote;
-        html += "<div class='detail-list'><div><span class='muted'>Created</span><strong>" + (data.created_at || "unknown") + "</strong></div>";
-        html += "<div><span class='muted'>Updated</span><strong>" + (data.updated_at || "unknown") + "</strong></div>";
-        html += "<div><span class='muted'>Jobs</span><strong>" + jobs.length + "</strong></div></div></div>";
-        
+
+        const skippedBanner = isSkipped
+          ? `<div class="info-banner" style="margin-bottom: 1rem; margin-top: 0.5rem;"><strong>Build was skipped</strong> - a release already exists for this ref. <a href="/packages" style="color: var(--accent-2);">Check Packages</a> to download.</div>`
+          : "";
+
+        let html = `<div class="run-header">
+          <div class="run-header-info">
+            <strong class="run-name">${data.name || "Forge build"}</strong>
+            <div class="run-links">
+              ${data.html_url ? `<a href="${data.html_url}" target="_blank" rel="noreferrer">Open in GitHub</a>` : ""}
+              ${data.html_url ? " · " : ""}
+              <a href="/packages">Browse Packages</a>
+            </div>
+          </div>
+          <span class="${sc}">${statusMessage}</span>
+        </div>
+        ${skippedBanner}
+        <div class="run-meta">
+          <div class="run-meta-item"><span>Created</span><strong>${formatTime(data.created_at) || "unknown"}</strong></div>
+          <div class="run-meta-item"><span>Updated</span><strong>${formatTime(data.updated_at) || "unknown"}</strong></div>
+          <div class="run-meta-item"><span>Jobs</span><strong>${jobs.length}</strong></div>
+        </div>`;
+
         jobs.forEach(function(job) {
-          const jobStatusClass = getStatusClass(job.status, job.conclusion);
-          html += "<article class='log-card " + jobStatusClass + "-border " + jobStatusClass + "-bg'>";
-          html += "<div class='split'><strong>" + (job.name || "Job") + "</strong></div>";
-          html += "<div class='pill-list'>";
+          const jc = statusClass(job.status, job.conclusion);
+          const started = job.started_at ? formatTime(job.started_at) : "";
+          const completed = job.completed_at ? formatTime(job.completed_at) : "";
+          const duration = started && completed ? ` · ${job.started_at && job.completed_at ? Math.round((new Date(job.completed_at) - new Date(job.started_at)) / 1000) + "s" : ""}` : "";
+
+          html += `<div class="job-card">
+            <div class="job-card-header">
+              <strong>${job.name || "Job"}</strong>
+              <span class="${jc}">${job.conclusion || job.status}</span>
+            </div>
+            ${started ? `<div class="job-card-time">${started}${duration}</div>` : ""}
+            <div class="job-steps">`;
+
           if (job.steps) {
             job.steps.forEach(function(step) {
-              const stepStatusClass = getStatusClass(step.status, step.conclusion);
-              html += "<span class='pill'>" + (step.name || "Step") + ": <span class='" + stepStatusClass + "' style='font-size: 0.9em;'>" + (step.conclusion || step.status) + "</span></span>";
+              const sc = statusClass(step.status, step.conclusion);
+              html += `<div class="job-step">
+                <span class="job-step-name">${step.name || "Step"}</span>
+                <span class="${sc}" style="font-size: 0.78rem;">${step.conclusion || step.status}</span>
+              </div>`;
             });
           }
-          html += "</div></article>";
+
+          html += `</div></div>`;
         });
-        
+
         target.innerHTML = html;
 
         if (data.status !== "completed") {

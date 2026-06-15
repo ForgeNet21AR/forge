@@ -9,7 +9,7 @@ export const prerender = false;
     <section class="panel">
       <p class="kicker">Runs</p>
       <h1>Find a build.</h1>
-      <p>Enter a run ID or pick from recent builds in this browser.</p>
+      <p>Enter a run ID or pick from recent builds saved locally.</p>
     </section>
     <aside class="panel">
       <div class="field">
@@ -35,19 +35,17 @@ export const prerender = false;
     const recentRuns: string[] = JSON.parse(localStorage.getItem("forge_recent_runs") || "[]");
 
     if (recentRuns.length && recentContainer) {
-      recentContainer.innerHTML = recentRuns
+      recentContainer.innerHTML = `<div class="release-grid">${recentRuns
         .map((runId: string) => `
-          <article class="result-card">
-            <div class="split">
-              <div>
-                <strong>Run #${runId}</strong>
-                <span class="muted" style="font-size: 0.85rem;">Track build status</span>
-              </div>
-              <a class="button secondary" href="/runs/${runId}">View</a>
+          <div class="release-card">
+            <div class="release-card-top">
+              <strong class="release-tool">Run #${runId}</strong>
+              <a class="button secondary" href="/runs/${runId}" style="padding: 0.35rem 0.7rem; font-size: 0.85rem;">View</a>
             </div>
-          </article>
+            <div class="release-tag">Track build status and steps</div>
+          </div>
         `)
-        .join("");
+        .join("")}</div>`;
     }
 
     document.querySelector("#open-run")?.addEventListener("click", () => {

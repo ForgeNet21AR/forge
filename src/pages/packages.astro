@@ -75,10 +75,6 @@ const knownTools = catalog.filter((entry) => entry.enabled);
       return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
     }
 
-    function isExeAsset(name: string): boolean {
-      return name.endsWith(".exe") || name.endsWith(".EXE");
-    }
-
     function renderReleases(releases: Release[], searchTerm: string = "") {
       let filtered = releases;
 

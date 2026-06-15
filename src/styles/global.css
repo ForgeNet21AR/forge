@@ -863,6 +863,123 @@ textarea {
   word-break: break-word;
 }
 
+.run-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.run-header-info {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.run-name {
+  font-size: 1.1rem;
+}
+
+.run-links {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.run-links a {
+  color: var(--accent-2);
+  text-decoration: none;
+}
+
+.run-links a:hover {
+  color: var(--ink);
+}
+
+.run-meta {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.run-meta-item {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.75rem;
+  text-align: center;
+  border-right: 1px solid var(--line);
+}
+
+.run-meta-item:last-child {
+  border-right: 0;
+}
+
+.run-meta-item span {
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.run-meta-item strong {
+  font-size: 0.9rem;
+}
+
+.job-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-2);
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+}
+
+.job-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.job-card-header strong {
+  font-size: 0.95rem;
+}
+
+.job-card-time {
+  padding: 0.4rem 1rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+}
+
+.job-steps {
+  display: grid;
+}
+
+.job-step {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.85rem;
+}
+
+.job-step:last-child {
+  border-bottom: 0;
+}
+
+.job-step-name {
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 pre {
   white-space: pre-wrap;
   word-break: break-word;
