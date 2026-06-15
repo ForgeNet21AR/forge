@@ -1,6 +1,6 @@
-name: Forge - Build One
+name: Forge - Build v2
 run-name: >-
-  Forge - ${{ inputs.repo_url || inputs.tool_id || 'catalog-run' }}
+  Forge v2 - ${{ inputs.repo_url || inputs.tool_id || 'catalog-run' }}
   [${{ inputs.mode }}]
 
 on:
@@ -582,6 +582,10 @@ jobs:
               $buildMode = "project_redirect_output"
             }
           }
+
+          $isSdkStyle = "${{ needs.preflight.outputs.is_sdk_style }}" -eq "true"
+          $buildType = "${{ inputs.build_type }}"
+          if ([string]::IsNullOrWhiteSpace($buildType)) { $buildType = "bundle" }
 
           $msbuildArgs = @(
             $projectFile,
