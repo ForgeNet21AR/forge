@@ -23,7 +23,7 @@ export const prerender = false;
     <div class="toolbar">
       <div class="toolbar-left" style="display: flex; align-items: center; gap: 0.75rem; flex: 1;">
         <div class="field" style="flex: 1; margin: 0;">
-          <input id="packages-search" placeholder="Search by tool name or tag..." style="min-width: 200px;" />
+          <input id="packages-search" placeholder="Search tools by name or tag..." style="min-width: 200px;" />
         </div>
         <button id="load-all-btn" type="button" class="secondary" style="flex-shrink: 0;">Browse all</button>
       </div>
@@ -62,6 +62,22 @@ export const prerender = false;
       return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
     }
 
+    function renderVersion(release: Release): string {
+      return `
+        <div class="release-version">
+          <div class="release-version-tag">${release.name ?? release.tag}</div>
+          <div class="release-version-assets">
+            ${release.assets.map((asset) => `
+              <a class="release-asset-link" href="/api/releases/asset?tag=${encodeURIComponent(release.tag)}&name=${encodeURIComponent(asset.name)}">
+                <span class="release-asset-name">${asset.name}</span>
+                <span class="asset-size">${formatSize(asset.size)}</span>
+              </a>
+            `).join("")}
+          </div>
+        </div>
+      `;
+    }
+
     function renderReleases(releases: Release[], searchTerm: string = "") {
       let filtered = releases;
 
@@ -87,29 +103,26 @@ export const prerender = false;
         groups[id].push(r);
       });
 
-      resultsList.innerHTML = `<div class="release-grid">${Object.entries(groups).map(([toolId, toolReleases]) => `
+      resultsList.innerHTML = `<div class="release-grid">${Object.entries(groups).map(([toolId, toolReleases]) => {
+        const visible = toolReleases.slice(0, 3);
+        const hidden = toolReleases.slice(3);
+        return `
         <div class="release-card">
           <div class="release-card-top">
             <strong class="release-tool">${toolId}</strong>
             <span class="status success">${toolReleases.length} release${toolReleases.length !== 1 ? "s" : ""}</span>
           </div>
-          <div class="release-versions">
-            ${toolReleases.map((release) => `
-              <div class="release-version">
-                <div class="release-version-tag">${release.name ?? release.tag}</div>
-                <div class="release-version-assets">
-                  ${release.assets.map((asset) => `
-                    <a class="release-asset-link" href="/api/releases/asset?tag=${encodeURIComponent(release.tag)}&name=${encodeURIComponent(asset.name)}">
-                      <span class="release-asset-name">${asset.name}</span>
-                      <span class="asset-size">${formatSize(asset.size)}</span>
-                    </a>
-                  `).join("")}
-                </div>
+          <div class="release-versions" data-card="${toolId}">
+            ${visible.map(renderVersion).join("")}
+            ${hidden.length ? `
+              <div class="release-version release-hidden" style="display:none">
+                ${hidden.map(renderVersion).join("")}
               </div>
-            `).join("")}
+              <button class="release-show-more" type="button" data-card="${toolId}">Show ${hidden.length} more</button>
+            ` : ""}
           </div>
         </div>
-      `).join("")}</div>`;
+      `}).join("")}</div>`;
     }
 
     async function loadResults() {
@@ -140,6 +153,20 @@ export const prerender = false;
 
     searchInput?.addEventListener("input", () => {
       renderReleases(allReleases, searchInput.value);
+    });
+
+    resultsList.addEventListener("click", (e) => {
+      const btn = (e.target as HTMLElement).closest(".release-show-more") as HTMLButtonElement | null;
+      if (!btn) return;
+      const card = btn.dataset.card;
+      if (!card) return;
+      const container = btn.closest(".release-versions") as HTMLElement;
+      if (!container) return;
+      const hidden = container.querySelector(".release-hidden") as HTMLElement;
+      if (!hidden) return;
+      const isHidden = hidden.style.display === "none";
+      hidden.style.display = isHidden ? "" : "none";
+      btn.textContent = isHidden ? "Show less" : `Show ${hidden.children.length} more`;
     });
 
     loadResults();
