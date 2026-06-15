@@ -64,7 +64,7 @@ const knownTools = catalog.filter((entry) => entry.enabled);
     const releaseCount = document.getElementById("release-count") as HTMLElement;
 
     function extractToolId(tag: string): string {
-      const match = tag.match(/^tool\/([^/]+)/);
+      const match = tag.match(/^tool\/([^/]+)\//);
       return match ? match[1] : "";
     }
 
@@ -79,19 +79,7 @@ const knownTools = catalog.filter((entry) => entry.enabled);
       let filtered = releases;
 
       if (activeFilter) {
-        filtered = filtered.filter((r) => {
-          const toolId = extractToolId(r.tag);
-          const pills = pillContainer?.querySelectorAll("[data-result-repo]");
-          if (pills) {
-            for (const pill of pills) {
-              const repo = (pill as HTMLElement).dataset.resultRepo;
-              if (repo === activeFilter) {
-                return toolId === pill.textContent;
-              }
-            }
-          }
-          return true;
-        });
+        filtered = filtered.filter((r) => extractToolId(r.tag) === activeFilter);
       }
 
       if (searchTerm) {
@@ -109,29 +97,36 @@ const knownTools = catalog.filter((entry) => entry.enabled);
         return;
       }
 
-      resultsList.innerHTML = `<div class="release-grid">${filtered.map((release) => {
-          const toolId = extractToolId(release.tag);
-          return `
-            <article class="release-card">
-              <div class="release-card-top">
-                <strong class="release-tool">${toolId}</strong>
-                <span class="status success">${release.assets.length}</span>
-              </div>
-              <div class="release-tag">${release.name ?? release.tag}</div>
-              <div class="release-assets">
-                ${release.assets
-                  .map((asset) => `
+      const groups: Record<string, Release[]> = {};
+      filtered.forEach((r) => {
+        const id = extractToolId(r.tag);
+        if (!groups[id]) groups[id] = [];
+        groups[id].push(r);
+      });
+
+      resultsList.innerHTML = `<div class="release-grid">${Object.entries(groups).map(([toolId, toolReleases]) => `
+        <div class="release-card">
+          <div class="release-card-top">
+            <strong class="release-tool">${toolId}</strong>
+            <span class="status success">${toolReleases.length} release${toolReleases.length !== 1 ? "s" : ""}</span>
+          </div>
+          <div class="release-versions">
+            ${toolReleases.map((release) => `
+              <div class="release-version">
+                <div class="release-version-tag">${release.name ?? release.tag}</div>
+                <div class="release-version-assets">
+                  ${release.assets.map((asset) => `
                     <a class="release-asset-link" href="/api/releases/asset?tag=${encodeURIComponent(release.tag)}&name=${encodeURIComponent(asset.name)}">
                       <span class="release-asset-name">${asset.name}</span>
                       <span class="asset-size">${formatSize(asset.size)}</span>
                     </a>
-                  `)
-                  .join("")}
+                  `).join("")}
+                </div>
               </div>
-            </article>
-          `;
-        })
-        .join("")}</div>`;
+            `).join("")}
+          </div>
+        </div>
+      `).join("")}</div>`;
     }
 
     async function loadResults(repoUrl = "") {
@@ -181,6 +176,10 @@ const knownTools = catalog.filter((entry) => entry.enabled);
         const btn = button as HTMLButtonElement;
         const repo = btn.dataset.resultRepo ?? "";
         activeFilter = activeFilter === repo ? "" : repo;
+
+        const toolId = activeFilter ? btn.textContent?.trim() ?? "" : "";
+        const normalizedFilter = toolId;
+
         setActivePill(activeFilter);
         renderReleases(allReleases, searchInput.value);
       });
