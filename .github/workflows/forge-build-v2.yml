@@ -355,7 +355,7 @@ jobs:
             fi
           fi
 
-          project_path="$(realpath "$project_path" 2>/dev/null || echo "$project_path")"
+          project_path="${project_path#./}"
           echo "project_path=$project_path" >> "$GITHUB_OUTPUT"
 
           # Detect restore_mode
