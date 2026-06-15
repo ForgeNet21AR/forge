@@ -1,7 +1,6 @@
 name: Forge - Build One
 run-name: >-
   Forge - ${{ inputs.repo_url || inputs.tool_id || 'catalog-run' }}
-  [${{ inputs.mode }}]
 
 on:
   workflow_dispatch:
@@ -11,14 +10,6 @@ on:
         required: true
         type: string
         default: ""
-      mode:
-        description: Build mode
-        required: true
-        type: choice
-        default: simple
-        options:
-          - simple
-          - advanced
       git_ref:
         description: Exact tag, branch, or commit
         required: false
@@ -71,10 +62,6 @@ on:
 
   workflow_call:
     inputs:
-      mode:
-        required: false
-        type: string
-        default: simple
       tool_id:
         required: false
         type: string
@@ -168,7 +155,6 @@ jobs:
         id: resolve
         run: |
           python scripts/catalog_tool.py resolve \
-            "${{ inputs.mode }}" \
             "${{ inputs.tool_id }}" \
             "${{ inputs.repo_url }}"
 
@@ -247,13 +233,14 @@ jobs:
 
           if [ "${{ inputs.force_rebuild }}" = "true" ]; then
             echo "skip_build=false" >> "$GITHUB_OUTPUT"
-            echo "Cache bypassed (force_rebuild)" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Cache bypassed (force_rebuild)" >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
           if gh release view "$release_tag" --json tagName --repo "${{ github.repository }}" > /dev/null 2>&1; then
             echo "skip_build=true" >> "$GITHUB_OUTPUT"
-            echo "Cache hit for $release_tag" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Cache hit" >> "$GITHUB_STEP_SUMMARY"
+            echo "- $release_tag" >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
@@ -367,7 +354,8 @@ jobs:
               project_path="$manual_path"
             else
               echo "skip_build=true" >> "$GITHUB_OUTPUT"
-              echo "Provided project_path not found: $manual_path" >> "$GITHUB_STEP_SUMMARY"
+              echo "### Provided project_path not found" >> "$GITHUB_STEP_SUMMARY"
+              echo "- $manual_path" >> "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
           else
@@ -400,11 +388,13 @@ jobs:
                 project_path="$(echo "$csproj_files" | head -n 1)"
               elif [ -z "$sln_files" ] && [ -z "$csproj_files" ]; then
                 echo "skip_build=true" >> "$GITHUB_OUTPUT"
-                echo "No .sln or .csproj files found. Supply project_path." >> "$GITHUB_STEP_SUMMARY"
+                echo "### No .sln or .csproj files found" >> "$GITHUB_STEP_SUMMARY"
+                echo "- Supply project_path input or add a .sln/.csproj to the repository" >> "$GITHUB_STEP_SUMMARY"
                 exit 0
               else
                 echo "skip_build=true" >> "$GITHUB_OUTPUT"
-                echo "Project auto-detection is ambiguous. Supply project_path." >> "$GITHUB_STEP_SUMMARY"
+                echo "### Project auto-detection is ambiguous" >> "$GITHUB_STEP_SUMMARY"
+                echo "- Supply project_path input to disambiguate" >> "$GITHUB_STEP_SUMMARY"
                 exit 0
               fi
             fi

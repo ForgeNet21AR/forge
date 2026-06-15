@@ -62,7 +62,6 @@ export async function POST(context: APIContext) {
     const body = (await context.request.json()) as Record<string, string | boolean>;
     const inputs = {
       repo_url: String(body.repo_url ?? ""),
-      mode: String(body.mode ?? "simple"),
       git_ref: String(body.git_ref ?? ""),
       project_path: String(body.project_path ?? ""),
       configuration: String(body.configuration ?? ""),

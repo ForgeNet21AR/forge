@@ -90,7 +90,7 @@ const catalogPreview = catalog
               <input id="advanced-toggle" type="checkbox" />
               <span>
                 <strong>Advanced settings</strong>
-                <small>Project path, framework, asset filters, and mode overrides.</small>
+                <small>Project path, framework, and asset filter overrides.</small>
               </span>
             </label>
             <label class="toggle-card" for="force-rebuild">
@@ -336,7 +336,6 @@ const catalogPreview = catalog
       
       const payload = {
         repo_url: state.repoUrl || repoUrlInput.value,
-        mode: advancedToggle.checked ? "advanced" : "simple",
         git_ref: (document.querySelector("#source-ref") as HTMLInputElement).value.trim(),
         project_path: (document.querySelector("#project-path") as HTMLInputElement).value.trim(),
         configuration: (document.querySelector("#configuration") as HTMLInputElement).value.trim(),
