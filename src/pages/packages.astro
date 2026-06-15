@@ -1,9 +1,7 @@
 ---
 import AppLayout from "../layouts/AppLayout.astro";
-import { catalog } from "../lib/forge-data";
 
 export const prerender = false;
-const knownTools = catalog.filter((entry) => entry.enabled);
 ---
 
 <AppLayout title="forge - Packages" description="Browse and download built packages from GitHub Releases.">
@@ -11,13 +9,9 @@ const knownTools = catalog.filter((entry) => entry.enabled);
     <section class="panel">
       <p class="kicker">Packages</p>
       <h1>Download builds.</h1>
-      <p>Browse all releases or filter by tool. Every build produces a downloadable release.</p>
+      <p>Every build produces a downloadable release. Search or browse below.</p>
     </section>
     <aside class="panel stats">
-      <div class="stat">
-        <strong>{knownTools.length}</strong>
-        <span class="muted">tools in catalog</span>
-      </div>
       <div class="stat">
         <strong id="release-count">-</strong>
         <span class="muted">releases loaded</span>
@@ -29,15 +23,10 @@ const knownTools = catalog.filter((entry) => entry.enabled);
     <div class="toolbar">
       <div class="toolbar-left" style="display: flex; align-items: center; gap: 0.75rem; flex: 1;">
         <div class="field" style="flex: 1; margin: 0;">
-          <input id="packages-search" placeholder="Search by tool name or repo..." style="min-width: 200px;" />
+          <input id="packages-search" placeholder="Search by tool name or tag..." style="min-width: 200px;" />
         </div>
         <button id="load-all-btn" type="button" class="secondary" style="flex-shrink: 0;">Browse all</button>
       </div>
-    </div>
-    <div id="pill-container" class="pill-list" style="margin-bottom: 1rem;">
-      {knownTools.map((tool) => (
-        <button class="pill" type="button" data-result-repo={tool.repo_url}>{tool.id}</button>
-      ))}
     </div>
     <div id="results-list" class="empty">Load releases to see available packages.</div>
   </section>
@@ -56,9 +45,7 @@ const knownTools = catalog.filter((entry) => entry.enabled);
     }
 
     let allReleases: Release[] = [];
-    let activeFilter: string = "";
 
-    const pillContainer = document.getElementById("pill-container");
     const resultsList = document.getElementById("results-list") as HTMLElement;
     const searchInput = document.getElementById("packages-search") as HTMLInputElement;
     const releaseCount = document.getElementById("release-count") as HTMLElement;
@@ -77,10 +64,6 @@ const knownTools = catalog.filter((entry) => entry.enabled);
 
     function renderReleases(releases: Release[], searchTerm: string = "") {
       let filtered = releases;
-
-      if (activeFilter) {
-        filtered = filtered.filter((r) => extractToolId(r.tag) === activeFilter);
-      }
 
       if (searchTerm) {
         const q = searchTerm.toLowerCase();
@@ -129,10 +112,9 @@ const knownTools = catalog.filter((entry) => entry.enabled);
       `).join("")}</div>`;
     }
 
-    async function loadResults(repoUrl = "") {
+    async function loadResults() {
       resultsList.innerHTML = "<div class='empty'>Loading…</div>";
-      const query = repoUrl ? `?repo_url=${encodeURIComponent(repoUrl)}` : "";
-      const response = await fetch(`/api/releases${query}`);
+      const response = await fetch("/api/releases");
 
       if (!response.ok) {
         resultsList.innerHTML = "<div class='empty'>Unable to load packages.</div>";
@@ -143,16 +125,7 @@ const knownTools = catalog.filter((entry) => entry.enabled);
 
       if (!data.releases?.length) {
         releaseCount.textContent = "0";
-        if (repoUrl) {
-          resultsList.innerHTML = `
-            <div class='empty'>
-              <p>No packages found for <strong>${repoUrl}</strong>.</p>
-              <p style="margin-top: 0.5rem;">Want to build it? <a href="/build?repo=${encodeURIComponent(repoUrl)}" class="button secondary" style="margin-top: 0.5rem; display: inline-flex;">Build it</a></p>
-            </div>
-          `;
-        } else {
-          resultsList.innerHTML = "<div class='empty'>No packages found yet. Build something!</div>";
-        }
+        resultsList.innerHTML = "<div class='empty'>No packages found yet. Build something!</div>";
         return;
       }
 
@@ -160,42 +133,15 @@ const knownTools = catalog.filter((entry) => entry.enabled);
       renderReleases(allReleases, searchInput.value);
     }
 
-    function setActivePill(repoUrl: string) {
-      pillContainer?.querySelectorAll(".pill").forEach((p) => p.classList.remove("active"));
-      if (repoUrl) {
-        pillContainer?.querySelectorAll("[data-result-repo]").forEach((p) => {
-          if ((p as HTMLElement).dataset.resultRepo === repoUrl) {
-            p.classList.add("active");
-          }
-        });
-      }
-    }
-
-    document.querySelectorAll("[data-result-repo]").forEach((button) => {
-      button.addEventListener("click", () => {
-        const btn = button as HTMLButtonElement;
-        const repo = btn.dataset.resultRepo ?? "";
-        activeFilter = activeFilter === repo ? "" : repo;
-
-        const toolId = activeFilter ? btn.textContent?.trim() ?? "" : "";
-        const normalizedFilter = toolId;
-
-        setActivePill(activeFilter);
-        renderReleases(allReleases, searchInput.value);
-      });
-    });
-
     document.getElementById("load-all-btn")?.addEventListener("click", () => {
-      activeFilter = "";
-      setActivePill("");
       searchInput.value = "";
-      loadResults("");
+      loadResults();
     });
 
     searchInput?.addEventListener("input", () => {
       renderReleases(allReleases, searchInput.value);
     });
 
-    loadResults("");
+    loadResults();
   </script>
 </AppLayout>
