@@ -4,16 +4,16 @@ import AppLayout from "../../layouts/AppLayout.astro";
 export const prerender = false;
 ---
 
-<AppLayout title="forge - Build Runs" description="Find and track your build runs. Jump back into recent builds from this browser.">
+<AppLayout title="forge - Build Runs" description="Find and track your build runs.">
   <section class="hero">
     <section class="panel">
       <p class="kicker">Runs</p>
       <h1>Find a build.</h1>
-      <p>Enter a run id or pick from recent.</p>
+      <p>Enter a run ID or pick from recent builds in this browser.</p>
     </section>
     <aside class="panel">
       <div class="field">
-        <label for="run-id">Run id</label>
+        <label for="run-id">Run ID</label>
         <input id="run-id" placeholder="123456789" />
       </div>
       <div class="inline-actions" style="margin-top: 1rem;">
@@ -39,8 +39,11 @@ export const prerender = false;
         .map((runId: string) => `
           <article class="result-card">
             <div class="split">
-              <strong>Run #${runId}</strong>
-              <a class="button secondary" href="/runs/${runId}">Open</a>
+              <div>
+                <strong>Run #${runId}</strong>
+                <span class="muted" style="font-size: 0.85rem;">Track build status</span>
+              </div>
+              <a class="button secondary" href="/runs/${runId}">View</a>
             </div>
           </article>
         `)
@@ -51,6 +54,14 @@ export const prerender = false;
       const input = document.querySelector("#run-id") as HTMLInputElement;
       const runId = input.value.trim();
       if (runId) window.location.href = `/runs/${runId}`;
+    });
+
+    document.querySelector("#run-id")?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        const input = e.target as HTMLInputElement;
+        const runId = input.value.trim();
+        if (runId) window.location.href = `/runs/${runId}`;
+      }
     });
   </script>
 </AppLayout>

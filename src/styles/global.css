@@ -1,19 +1,19 @@
 @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap");
 
 :root {
-  --bg: #121417;
-  --panel: #181a1e;
-  --panel-2: #14161a;
-  --ink: #c8cdd6;
-  --muted: #6b7280;
-  --accent: #9ca3af;
-  --accent-2: #6b7280;
-  --primary: #6b8cae;
-  --primary-hover: #5a7a9c;
+  --bg: #1b1d21;
+  --panel: #23262b;
+  --panel-2: #1d1f24;
+  --ink: #d4d7de;
+  --muted: #8b909e;
+  --accent: #aeb3bf;
+  --accent-2: #7a7f8c;
+  --primary: #6f91b3;
+  --primary-hover: #6487a9;
   --success: #6b9e6b;
   --warning: #b5a34a;
   --danger: #a66b78;
-  --line: rgba(255, 255, 255, 0.05);
+  --line: rgba(255, 255, 255, 0.07);
   --radius: 10px;
 }
 
@@ -132,9 +132,9 @@ a {
   display: flex;
   gap: 0.25rem;
   padding: 0.25rem;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
   border-radius: 10px;
-  background: #13151a;
+  background: var(--panel-2);
   position: relative;
 }
 
@@ -162,7 +162,7 @@ a {
   position: absolute;
   top: 0.25rem;
   bottom: 0.25rem;
-  background: #1f2228;
+  background: var(--panel);
   border-radius: 8px;
   transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1), width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 0;
@@ -211,7 +211,7 @@ textarea {
 button {
   border: 0;
   border-radius: 8px;
-  background: #1f2228;
+  background: var(--panel-2);
   color: var(--ink);
   font-weight: 600;
   padding: 0.7rem 1rem;
@@ -227,7 +227,7 @@ button {
 
 .button:hover,
 button:hover {
-  background: #2a2d34;
+  background: #2e3138;
 }
 
 .button.primary,
@@ -252,7 +252,7 @@ button.secondary {
 
 .button.secondary:hover,
 button.secondary:hover {
-  background: #252830;
+  background: #2a2d34;
   border-color: rgba(255, 255, 255, 0.12);
 }
 
@@ -337,7 +337,7 @@ textarea {
   border-radius: 10px;
   border: 1px solid var(--line);
   padding: 0.95rem 1rem;
-  background: #101217;
+  background: var(--bg);
   color: var(--ink);
 }
 
@@ -448,13 +448,13 @@ textarea {
   padding: 0.9rem 1rem;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: #151924;
+  background: var(--panel-2);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .toggle-card:hover {
-  background: #1a1e2a;
+  background: #23262b;
   border-color: rgba(142, 166, 190, 0.2);
 }
 
@@ -521,7 +521,7 @@ textarea {
 
 .result-card:hover {
   border-color: rgba(107, 140, 174, 0.3);
-  background: #181b20;
+  background: #202328;
 }
 
 .result-card strong {
@@ -549,7 +549,7 @@ textarea {
   gap: 0.25rem;
   padding: 0.6rem 0.8rem;
   min-width: 140px;
-  background: #1f2228;
+  background: var(--panel);
 }
 
 .asset-button:hover {
@@ -679,6 +679,120 @@ textarea {
 .message-error {
   color: var(--danger);
   font-weight: 600;
+}
+
+.inspector-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel-2);
+  overflow: hidden;
+}
+
+.inspector-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.inspector-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.inspector-titles {
+  display: grid;
+  gap: 0.1rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.inspector-name {
+  font-size: 1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inspector-repo {
+  font-size: 0.8rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inspector-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.inspector-stat {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.75rem 0.5rem;
+  text-align: center;
+  border-right: 1px solid var(--line);
+}
+
+.inspector-stat:last-child {
+  border-right: 0;
+}
+
+.inspector-stat-value {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.inspector-stat-label {
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.inspector-details {
+  padding: 0.75rem 1rem;
+}
+
+.inspector-detail-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+}
+
+.inspector-detail-list {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.inspector-detail-list div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.inspector-detail-list span {
+  color: var(--muted);
+}
+
+.inspector-detail-list strong {
+  font-weight: 600;
+  text-align: right;
 }
 
 pre {
