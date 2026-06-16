@@ -23,8 +23,10 @@ export const prerender = false;
     <div class="toolbar">
       <div class="toolbar-left" style="display: flex; align-items: center; gap: 0.75rem; flex: 1;">
         <div class="field" style="flex: 1; margin: 0;">
-          <input id="packages-search" placeholder="Search tools by name or tag..." list="tool-suggestions" style="min-width: 200px;" />
-          <datalist id="tool-suggestions"></datalist>
+          <div class="search-wrap">
+            <input id="packages-search" placeholder="Search tools by name or tag..." style="min-width: 200px;" autocomplete="off" />
+            <div id="search-suggestions" class="suggestions-dropdown" style="display:none"></div>
+          </div>
         </div>
         <button id="load-all-btn" type="button" class="secondary" style="flex-shrink: 0;">Browse all</button>
       </div>
@@ -49,7 +51,9 @@ export const prerender = false;
 
     const resultsList = document.getElementById("results-list") as HTMLElement;
     const searchInput = document.getElementById("packages-search") as HTMLInputElement;
+    const suggestionsBox = document.getElementById("search-suggestions") as HTMLElement;
     const releaseCount = document.getElementById("release-count") as HTMLElement;
+    let toolIds: string[] = [];
 
     function extractToolId(tag: string): string {
       const match = tag.match(/^tool\/([^/]+)\//);
@@ -79,18 +83,29 @@ export const prerender = false;
       `;
     }
 
+    function showSuggestions(query: string) {
+      const q = query.toLowerCase();
+      const matches = q ? toolIds.filter((id) => id.includes(q)) : [];
+      if (!matches.length || searchInput !== document.activeElement) {
+        suggestionsBox.style.display = "none";
+        return;
+      }
+      suggestionsBox.innerHTML = matches
+        .map((id) => `<div class="suggestion-item" data-tool="${id}">${id}</div>`)
+        .join("");
+      suggestionsBox.style.display = "";
+    }
+
     function updateSuggestions(releases: Release[]) {
-      const datalist = document.getElementById("tool-suggestions") as HTMLDataListElement;
       const seen = new Set<string>();
-      datalist.innerHTML = "";
+      toolIds = [];
       for (const r of releases) {
         const id = extractToolId(r.tag);
         if (!id || seen.has(id)) continue;
         seen.add(id);
-        const opt = document.createElement("option");
-        opt.value = id;
-        datalist.appendChild(opt);
+        toolIds.push(id);
       }
+      showSuggestions(searchInput.value);
     }
 
     function renderReleases(releases: Release[], searchTerm: string = "") {
@@ -169,6 +184,23 @@ export const prerender = false;
 
     searchInput?.addEventListener("input", () => {
       renderReleases(allReleases, searchInput.value);
+      showSuggestions(searchInput.value);
+    });
+
+    searchInput?.addEventListener("focus", () => showSuggestions(searchInput.value));
+
+    searchInput?.addEventListener("blur", () => {
+      setTimeout(() => { suggestionsBox.style.display = "none"; }, 150);
+    });
+
+    suggestionsBox?.addEventListener("click", (e) => {
+      const item = (e.target as HTMLElement).closest(".suggestion-item") as HTMLElement | null;
+      if (!item) return;
+      const tool = item.dataset.tool;
+      if (!tool) return;
+      searchInput.value = tool;
+      suggestionsBox.style.display = "none";
+      renderReleases(allReleases, tool);
     });
 
     resultsList.addEventListener("click", (e) => {

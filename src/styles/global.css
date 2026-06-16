@@ -1232,3 +1232,34 @@ button:disabled {
   color: var(--ink);
   background: var(--panel-2);
 }
+
+.search-wrap {
+  position: relative;
+  flex: 1;
+}
+
+.suggestions-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 0 0 8px 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.suggestion-item {
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.suggestion-item:hover,
+.suggestion-item.active {
+  background: var(--panel-2);
+  color: var(--ink);
+}
