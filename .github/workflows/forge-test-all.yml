@@ -54,3 +54,4 @@ jobs:
       asset_exclude: ${{ matrix.asset_exclude }}
       build_type: ${{ matrix.build_type }}
       force_rebuild: ${{ inputs.force_rebuild }}
+      commit_profile: false

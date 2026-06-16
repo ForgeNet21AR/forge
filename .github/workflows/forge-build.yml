@@ -59,6 +59,11 @@ on:
           - bundle
           - standalone
           - both
+      commit_profile:
+        description: Save build profile to repo
+        required: false
+        type: boolean
+        default: true
 
   workflow_call:
     inputs:
@@ -106,6 +111,10 @@ on:
         required: false
         type: string
         default: both
+      commit_profile:
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -905,6 +914,7 @@ jobs:
           $profile | ConvertTo-Json -Depth 5 | Set-Content $profilePath -Encoding UTF8
 
       - name: Commit build profile and catalog
+        if: inputs.commit_profile != false
         run: |
           $profileFile = "tools/profiles/${{ needs.preflight.outputs.tool_id }}.json"
           $profileContent = Get-Content -Raw $profileFile
