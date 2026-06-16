@@ -288,7 +288,7 @@ jobs:
           if echo "$dotnet_files" | grep -qE '\.(csproj|sln|vbproj)$'; then
             has_dotnet=true
           fi
-          if [ "$(list_files ".vcxproj" "" | wc -w)" -gt 0 ]; then
+          if [ "$(list_files ".vcxproj" "" | wc -l)" -gt 0 ]; then
             has_cpp=true
           fi
 
@@ -738,7 +738,6 @@ jobs:
             "*vshost*",
             "*testhost*",
             "*.resources.dll",
-            "*.json",
             "Microsoft.*",
             "MSBuild*"
           )
@@ -800,7 +799,16 @@ jobs:
           $standaloneAssetPath = $null
           $directExe = $null
           if (Test-Path $standaloneDir) {
-            $files = @(Get-ChildItem -Path $standaloneDir -File)
+            $standaloneCollect = "${{ github.workspace }}\artifact-standalone"
+            New-Item -ItemType Directory -Force -Path $standaloneCollect | Out-Null
+            Get-ChildItem "$standaloneDir" -Recurse -File | ForEach-Object {
+              $skip = $false
+              foreach ($exclude in $excludePatterns) {
+                if ($_.Name -like $exclude) { $skip = $true; break }
+              }
+              if (-not $skip) { Copy-Item "$($_.FullName)" "$standaloneCollect" -Force }
+            }
+            $files = @(Get-ChildItem -Path $standaloneCollect -File)
             if ($files.Count -eq 1 -and $files[0].Extension -eq '.exe') {
               $directExe = Join-Path "${{ github.workspace }}" "${assetPrefix}.exe"
               Copy-Item $files[0].FullName $directExe
@@ -809,7 +817,7 @@ jobs:
             } else {
               $standaloneBundlePath = Join-Path "${{ github.workspace }}" "${assetPrefix}_standalone.zip"
               if (Test-Path $standaloneBundlePath) { Remove-Item $standaloneBundlePath -Force }
-              Compress-Archive -Path (Join-Path $standaloneDir '*') -DestinationPath $standaloneBundlePath
+              Compress-Archive -Path (Join-Path $standaloneCollect '*') -DestinationPath $standaloneBundlePath
               "standalone_bundle_path=$standaloneBundlePath" >> $env:GITHUB_OUTPUT
               $standaloneAssetPath = $standaloneBundlePath
             }
