@@ -3,20 +3,6 @@ import AppLayout from "../layouts/AppLayout.astro";
 import { catalog, profiles } from "../lib/forge-data";
 
 export const prerender = false;
-
-const toolsData = JSON.stringify(
-  catalog.map((entry) => ({
-    id: entry.id,
-    repo_url: entry.repo_url,
-    enabled: entry.enabled,
-    project_path: entry.project_path || "",
-    default_configuration: entry.default_configuration || "Release",
-    default_framework: entry.default_framework || "",
-    default_ref: entry.default_ref || "",
-    version_strategy: entry.version_strategy || "tag_then_commit",
-    has_profile: !!profiles[entry.id],
-  }))
-);
 ---
 
 <AppLayout title="forge - Inventory" description="Browse all cataloged tools and their build configuration.">
@@ -28,7 +14,7 @@ const toolsData = JSON.stringify(
     </section>
     <aside class="panel stats">
       <div class="stat">
-        <strong id="tool-count">-</strong>
+        <strong>{catalog.length}</strong>
         <span class="muted">tools cataloged</span>
       </div>
     </aside>
@@ -43,73 +29,53 @@ const toolsData = JSON.stringify(
         <span id="filtered-count" class="muted" style="flex-shrink: 0;"></span>
       </div>
     </div>
-    <div id="inventory-list"><!-- rendered by JS --></div>
+    <div id="inventory-list">
+      <div class="release-grid" id="inventory-grid">
+        {catalog.map((entry) => {
+          const profile = profiles[entry.id];
+          return <div class="release-card">
+            <div class="release-card-top">
+              <strong class="release-tool">{entry.id}</strong>
+              <span class="status {entry.enabled ? "success" : "fail"}">{entry.enabled ? "enabled" : "disabled"}</span>
+            </div>
+            <div class="release-versions" style="gap: 0.3rem;">
+              <div class="release-version">
+                <div class="release-version-tag" style="font-size: 0.8rem;">repo</div>
+                <a class="release-asset-link" href={entry.repo_url} target="_blank" rel="noreferrer">{entry.repo_url}</a>
+              </div>
+              {(entry.project_path || profile?.project_path) ? <div class="release-version">
+                <div class="release-version-tag" style="font-size: 0.8rem;">project</div>
+                <span class="release-asset-name">{entry.project_path || profile?.project_path}</span>
+              </div> : null}
+              <div class="release-version" style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                <span><span class="release-version-tag">config</span> {entry.default_configuration || "Release"}</span>
+                {entry.default_framework ? <span><span class="release-version-tag">framework</span> {entry.default_framework}</span> : null}
+                <span><span class="release-version-tag">strategy</span> {entry.version_strategy}</span>
+                {profile ? <span class="status success" style="font-size: 0.78rem;">has profile</span> : null}
+              </div>
+            </div>
+          </div>;
+        })}
+      </div>
+    </div>
   </section>
 
-  <script define:vars={{ toolsData }}>
-    interface CatalogTool {
-      id: string;
-      repo_url: string;
-      enabled: boolean;
-      project_path: string;
-      default_configuration: string;
-      default_framework: string;
-      default_ref: string;
-      version_strategy: string;
-      has_profile: boolean;
-    }
-
-    const tools: CatalogTool[] = JSON.parse(toolsData);
-
-    const list = document.getElementById("inventory-list") as HTMLElement;
+  <script>
+    const grid = document.getElementById("inventory-grid") as HTMLElement;
     const searchInput = document.getElementById("inventory-search") as HTMLInputElement;
-    const toolCount = document.getElementById("tool-count") as HTMLElement;
     const filteredCount = document.getElementById("filtered-count") as HTMLElement;
+    const cards = Array.from(grid.querySelectorAll(".release-card")) as HTMLElement[];
 
-    toolCount.textContent = String(tools.length);
-
-    function renderTools(query: string) {
-      const q = query.toLowerCase();
-      const filtered = q
-        ? tools.filter((t) => t.id.includes(q) || t.repo_url.includes(q))
-        : tools;
-
-      filteredCount.textContent = filtered.length < tools.length ? `${filtered.length} shown` : "";
-
-      if (!filtered.length) {
-        list.innerHTML = `<div class="empty">No tools match your search.</div>`;
-        return;
-      }
-
-      list.innerHTML = `<div class="release-grid">${filtered.map((t) => `
-        <div class="release-card">
-          <div class="release-card-top">
-            <strong class="release-tool">${t.id}</strong>
-            <span class="status ${t.enabled ? "success" : "fail"}">${t.enabled ? "enabled" : "disabled"}</span>
-          </div>
-          <div class="release-versions" style="gap: 0.3rem;">
-            <div class="release-version">
-              <div class="release-version-tag" style="font-size: 0.8rem;">repo</div>
-              <a class="release-asset-link" href="${t.repo_url}" target="_blank" rel="noreferrer">${t.repo_url}</a>
-            </div>
-            ${t.project_path ? `
-            <div class="release-version">
-              <div class="release-version-tag" style="font-size: 0.8rem;">project</div>
-              <span class="release-asset-name">${t.project_path}</span>
-            </div>
-            ` : ""}
-            <div class="release-version" style="display: flex; gap: 1rem; flex-wrap: wrap;">
-              <span><span class="release-version-tag">config</span> ${t.default_configuration}</span>
-              ${t.default_framework ? `<span><span class="release-version-tag">framework</span> ${t.default_framework}</span>` : ""}
-              <span><span class="release-version-tag">strategy</span> ${t.version_strategy}</span>
-              ${t.has_profile ? `<span class="status success" style="font-size: 0.78rem;">has profile</span>` : ""}
-            </div>
-          </div>
-        </div>
-      `).join("")}</div>`;
-    }
-
-    searchInput?.addEventListener("input", () => renderTools(searchInput.value));
-    renderTools("");
+    searchInput?.addEventListener("input", () => {
+      const q = searchInput.value.toLowerCase();
+      let shown = 0;
+      cards.forEach((card) => {
+        const text = (card.textContent || "").toLowerCase();
+        const match = !q || text.includes(q);
+        card.style.display = match ? "" : "none";
+        if (match) shown++;
+      });
+      filteredCount.textContent = shown < cards.length ? `${shown} shown` : "";
+    });
   </script>
 </AppLayout>
