@@ -1,33 +1,8 @@
 import type { APIContext } from "astro";
+import { githubRequest } from "../../../lib/github";
 import { getRequiredEnv } from "../../../lib/runtime";
 
 export const prerender = false;
-
-async function githubRequest<T>(
-  context: APIContext,
-  path: string,
-  init: RequestInit = {},
-): Promise<T> {
-  const token = getRequiredEnv(context, "FORGE_GITHUB_TOKEN");
-  const response = await fetch(`https://api.github.com${path}`, {
-    ...init,
-    headers: {
-      Accept: "application/vnd.github+json",
-      Authorization: `Bearer ${token}`,
-      "X-GitHub-Api-Version": "2022-11-28",
-      "User-Agent": "forge-ui/1.0",
-      ...(init.headers ?? {}),
-    },
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`GitHub API ${response.status}: ${text}`);
-  }
-
-  if (response.status === 204) return undefined as T;
-  return (await response.json()) as T;
-}
 
 export async function GET(context: APIContext) {
   const tag = context.url.searchParams.get("tag") ?? "";

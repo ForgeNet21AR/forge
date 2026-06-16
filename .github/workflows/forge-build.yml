@@ -1,7 +1,6 @@
 name: Forge - Build One
 run-name: >-
   Forge - ${{ inputs.repo_url || inputs.tool_id || 'catalog-run' }}
-  [${{ inputs.mode }}]
 
 on:
   workflow_dispatch:
@@ -11,14 +10,6 @@ on:
         required: true
         type: string
         default: ""
-      mode:
-        description: Build mode
-        required: true
-        type: choice
-        default: simple
-        options:
-          - simple
-          - advanced
       git_ref:
         description: Exact tag, branch, or commit
         required: false
@@ -59,13 +50,18 @@ on:
         required: false
         type: boolean
         default: false
+      build_type:
+        description: Build output type
+        required: false
+        type: choice
+        default: both
+        options:
+          - bundle
+          - standalone
+          - both
 
   workflow_call:
     inputs:
-      mode:
-        required: false
-        type: string
-        default: simple
       tool_id:
         required: false
         type: string
@@ -106,6 +102,10 @@ on:
         required: false
         type: boolean
         default: false
+      build_type:
+        required: false
+        type: string
+        default: both
 
 permissions:
   contents: write
@@ -119,15 +119,17 @@ jobs:
     outputs:
       repo_url: ${{ steps.resolve.outputs.repo_url }}
       tool_id: ${{ steps.resolve.outputs.tool_id }}
-      project_path: ${{ steps.resolve.outputs.project_path }}
+      project_path: ${{ steps.detect.outputs.project_path }}
       configuration: ${{ steps.resolve.outputs.configuration }}
       target_framework: ${{ steps.resolve.outputs.target_framework }}
       git_ref: ${{ steps.resolve.outputs.git_ref }}
       version_strategy: ${{ steps.resolve.outputs.version_strategy }}
       asset_include: ${{ steps.resolve.outputs.asset_include }}
       asset_exclude: ${{ steps.resolve.outputs.asset_exclude }}
-      restore_mode: ${{ steps.resolve.outputs.restore_mode }}
-      build_mode: ${{ steps.resolve.outputs.build_mode }}
+      restore_mode: ${{ steps.detect.outputs.restore_mode }}
+      build_mode: ${{ steps.detect.outputs.build_mode }}
+      is_sdk_style: ${{ steps.detect.outputs.is_sdk_style }}
+      required_sdk: ${{ steps.detect.outputs.required_sdk }}
       resolved_commit: ${{ steps.meta.outputs.resolved_commit }}
       short_commit: ${{ steps.meta.outputs.short_commit }}
       resolved_tag: ${{ steps.meta.outputs.resolved_tag }}
@@ -137,7 +139,7 @@ jobs:
       release_name: ${{ steps.meta.outputs.release_name }}
       asset_prefix: ${{ steps.meta.outputs.asset_prefix }}
       build_key: ${{ steps.meta.outputs.build_key }}
-      skip_build: ${{ steps.cache.outputs.skip_build }}
+      skip_build: ${{ steps.detect.outputs.skip_build || steps.meta.outputs.skip_build }}
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -153,7 +155,6 @@ jobs:
         id: resolve
         run: |
           python scripts/catalog_tool.py resolve \
-            "${{ inputs.mode }}" \
             "${{ inputs.tool_id }}" \
             "${{ inputs.repo_url }}"
 
@@ -170,50 +171,36 @@ jobs:
             requested_ref="${{ steps.resolve.outputs.git_ref }}"
           fi
 
-          git clone --filter=blob:none "$repo_url" target
-          cd target
-          git fetch --tags --force
-
+          resolved_commit=""
           if [ -n "$requested_ref" ]; then
-            git checkout "$requested_ref"
-          else
-            if [ "${{ steps.resolve.outputs.version_strategy }}" = "tag_then_commit" ]; then
-              latest_tag="$(git for-each-ref refs/tags --sort=-creatordate --format='%(refname:strip=2)' | head -n 1 || true)"
-              if [ -n "$latest_tag" ]; then
-                git checkout "$latest_tag"
-                requested_ref="$latest_tag"
-              fi
+            resolved_commit="$(git ls-remote "$repo_url" "$requested_ref" | awk '{print $1; exit}')"
+            if [ -z "$resolved_commit" ]; then
+              resolved_commit="$(git ls-remote "$repo_url" "refs/tags/$requested_ref" | awk '{print $1; exit}')"
             fi
           fi
-
-          has_dotnet=false
-          has_cpp=false
-          if git ls-files '*.csproj' '*.sln' '*.vbproj' | grep -qE '\.(csproj|sln|vbproj)$'; then
-            has_dotnet=true
-          fi
-          if git ls-files '*.vcxproj' | grep -q '\.vcxproj$'; then
-            has_cpp=true
+          if [ -z "$resolved_commit" ]; then
+            resolved_commit="$(git ls-remote "$repo_url" HEAD | awk '{print $1; exit}')"
           fi
 
-          if [ "$has_dotnet" = false ] && [ "$has_cpp" = false ]; then
+          if [ -z "$resolved_commit" ]; then
             echo "skip_build=true" >> "$GITHUB_OUTPUT"
             echo "### Validation Failed" >> "$GITHUB_STEP_SUMMARY"
-            echo "- No .csproj, .sln, .vbproj, or .vcxproj files found" >> "$GITHUB_STEP_SUMMARY"
-            echo "- Forge only builds .NET/C# projects" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Unable to resolve any commit from $repo_url" >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
-          if [ "$has_dotnet" = false ] && [ "$has_cpp" = true ]; then
-            echo "skip_build=true" >> "$GITHUB_OUTPUT"
-            echo "### Validation Failed" >> "$GITHUB_STEP_SUMMARY"
-            echo "- Only C++ (.vcxproj) projects found, no .NET projects (.csproj/.sln/.vbproj)" >> "$GITHUB_STEP_SUMMARY"
-            echo "- Forge only builds .NET/C# projects" >> "$GITHUB_STEP_SUMMARY"
-            exit 0
+          short_commit="${resolved_commit:0:12}"
+          resolved_tag=""
+          if [ -n "$requested_ref" ]; then
+            resolved_tag="$(git ls-remote "$repo_url" "refs/tags/$requested_ref" | awk '{print $2; exit}' | sed 's|refs/tags/||' || true)"
           fi
-
-          resolved_commit="$(git rev-parse HEAD)"
-          short_commit="$(git rev-parse --short=12 HEAD)"
-          resolved_tag="$(git tag --points-at HEAD | head -n 1 || true)"
+          if [ -z "$resolved_tag" ]; then
+            latest_tag="$(git ls-remote --tags "$repo_url" | awk '{print $2}' | sed 's|refs/tags/||' | sort -V | tail -n 1 || true)"
+            tag_commit="$(git ls-remote "$repo_url" "refs/tags/$latest_tag" | awk '{print $1; exit}' || true)"
+            if [ "$tag_commit" = "$resolved_commit" ] || [ "${{ steps.resolve.outputs.version_strategy }}" = "tag_then_commit" ]; then
+              resolved_tag="$latest_tag"
+            fi
+          fi
 
           version_label="${{ inputs.version_override }}"
           if [ -z "$version_label" ]; then
@@ -234,43 +221,252 @@ jobs:
           asset_prefix="${tool_id}_${short_commit}"
           build_key="${repo_url}@${resolved_commit}"
 
-          {
-            echo "resolved_commit=$resolved_commit"
-            echo "short_commit=$short_commit"
-            echo "resolved_tag=$resolved_tag"
-            echo "resolved_ref=$requested_ref"
-            echo "version_label=$version_label"
-            echo "release_tag=$release_tag"
-            echo "release_name=$release_name"
-            echo "asset_prefix=$asset_prefix"
-            echo "build_key=$build_key"
-          } >> "$GITHUB_OUTPUT"
+          echo "resolved_commit=$resolved_commit" >> "$GITHUB_OUTPUT"
+          echo "short_commit=$short_commit" >> "$GITHUB_OUTPUT"
+          echo "resolved_tag=$resolved_tag" >> "$GITHUB_OUTPUT"
+          echo "resolved_ref=$requested_ref" >> "$GITHUB_OUTPUT"
+          echo "version_label=$version_label" >> "$GITHUB_OUTPUT"
+          echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
+          echo "release_name=$release_name" >> "$GITHUB_OUTPUT"
+          echo "asset_prefix=$asset_prefix" >> "$GITHUB_OUTPUT"
+          echo "build_key=$build_key" >> "$GITHUB_OUTPUT"
 
-          {
-            echo "### Resolved build"
-            echo "- repo: $repo_url"
-            echo "- ref: ${requested_ref:-<default>}"
-            echo "- tag: ${resolved_tag:-<none>}"
-            echo "- commit: $resolved_commit"
-            echo "- release tag: $release_tag"
-            echo "- version label: $version_label"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Check release cache
-        id: cache
-        run: |
           if [ "${{ inputs.force_rebuild }}" = "true" ]; then
             echo "skip_build=false" >> "$GITHUB_OUTPUT"
+            echo "### Cache bypassed (force_rebuild)" >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
-          if gh release view "${{ steps.meta.outputs.release_tag }}" --json tagName --repo "${{ github.repository }}" > /dev/null 2>&1; then
+          if gh release view "$release_tag" --json tagName --repo "${{ github.repository }}" > /dev/null 2>&1; then
             echo "skip_build=true" >> "$GITHUB_OUTPUT"
-            echo "Cache hit for ${{ steps.meta.outputs.release_tag }}" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "skip_build=false" >> "$GITHUB_OUTPUT"
-            echo "Cache miss for ${{ steps.meta.outputs.release_tag }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Cache hit" >> "$GITHUB_STEP_SUMMARY"
+            echo "- $release_tag" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
+
+          echo "### Resolved build" >> "$GITHUB_STEP_SUMMARY"
+          echo "- repo: $repo_url" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ref: ${requested_ref:-<default>}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- tag: ${resolved_tag:-<none>}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- commit: $resolved_commit" >> "$GITHUB_STEP_SUMMARY"
+          echo "- release tag: $release_tag" >> "$GITHUB_STEP_SUMMARY"
+          echo "- version label: $version_label" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Clone and detect project
+        id: detect
+        run: |
+          set -euo pipefail
+
+          repo_url="${{ steps.resolve.outputs.repo_url }}"
+          resolved_commit="${{ steps.meta.outputs.resolved_commit }}"
+
+          repo_name="$(echo "$repo_url" | sed -n 's|https://github.com/.*/||p')"
+
+          git clone --filter=blob:none "$repo_url" target
+          cd target
+
+          list_files() {
+            local pattern="$1"
+            local exclude="$2"
+            if [ -n "$exclude" ]; then
+              find . -name "*$pattern" ! -iname "*$exclude*" | sort | sed 's|^\./||'
+            else
+              find . -name "*$pattern" | sort | sed 's|^\./||'
+            fi
+          }
+
+          read_file() {
+            cat "$1" 2>/dev/null || true
+          }
+
+          has_dotnet=false
+          has_cpp=false
+
+          dotnet_files="$(list_files ".csproj" "")
+          $(list_files ".sln" "")
+          $(list_files ".vbproj" "")"
+          if echo "$dotnet_files" | grep -qE '\.(csproj|sln|vbproj)$'; then
+            has_dotnet=true
+          fi
+          if [ "$(list_files ".vcxproj" "" | wc -l)" -gt 0 ]; then
+            has_cpp=true
+          fi
+
+          if [ "$has_dotnet" = false ] && [ "$has_cpp" = false ]; then
+            echo "skip_build=true" >> "$GITHUB_OUTPUT"
+            echo "### Validation Failed" >> "$GITHUB_STEP_SUMMARY"
+            echo "- No .csproj, .sln, .vbproj, or .vcxproj files found" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Forge only builds .NET/C# projects" >> "$GITHUB_STEP_SUMMARY"
+            cd .. && rm -rf target
+            exit 0
+          fi
+
+          if [ "$has_dotnet" = false ] && [ "$has_cpp" = true ]; then
+            echo "skip_build=true" >> "$GITHUB_OUTPUT"
+            echo "### Validation Failed" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Only C++ (.vcxproj) projects found, no .NET projects (.csproj/.sln/.vbproj)" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Forge only builds .NET/C# projects" >> "$GITHUB_STEP_SUMMARY"
+            cd .. && rm -rf target
+            exit 0
+          fi
+
+          # Detect project file
+          manual_path="${{ inputs.project_path }}"
+          if [ -z "$manual_path" ]; then
+            manual_path="${{ steps.resolve.outputs.project_path }}"
+          fi
+
+          project_path=""
+          if [ -n "$manual_path" ]; then
+            if [ -f "$manual_path" ]; then
+              project_path="$manual_path"
+            else
+              echo "skip_build=true" >> "$GITHUB_OUTPUT"
+              echo "### Provided project_path not found" >> "$GITHUB_STEP_SUMMARY"
+              echo "- $manual_path" >> "$GITHUB_STEP_SUMMARY"
+              cd .. && rm -rf target
+              exit 0
+            fi
+          else
+            sln_files="$(list_files ".sln" "test")"
+            root_sln="$(echo "$sln_files" | grep -E '^[^/]+\.sln$' || true)"
+            named_root_sln="$(echo "$root_sln" | grep -iE "^${repo_name}\.sln$" || true)"
+            named_sln="$(echo "$sln_files" | grep -iE "/${repo_name}\.sln$" || true)"
+
+            if [ -n "$named_root_sln" ] && [ "$(echo "$named_root_sln" | wc -l)" -eq 1 ]; then
+              project_path="$named_root_sln"
+            elif [ -n "$root_sln" ] && [ "$(echo "$root_sln" | wc -l)" -eq 1 ]; then
+              project_path="$root_sln"
+            elif [ -n "$named_sln" ] && [ "$(echo "$named_sln" | wc -l)" -eq 1 ]; then
+              project_path="$named_sln"
+            elif [ -n "$sln_files" ] && [ "$(echo "$sln_files" | wc -l)" -eq 1 ]; then
+              project_path="$(echo "$sln_files" | head -n 1)"
+            else
+              csproj_files="$(list_files ".csproj" "test")"
+              root_csproj="$(echo "$csproj_files" | grep -E '^[^/]+\.csproj$' || true)"
+              named_root_csproj="$(echo "$root_csproj" | grep -iE "^${repo_name}\.csproj$" || true)"
+              named_csproj="$(echo "$csproj_files" | grep -iE "/${repo_name}\.csproj$" || true)"
+
+              if [ -n "$named_root_csproj" ] && [ "$(echo "$named_root_csproj" | wc -l)" -eq 1 ]; then
+                project_path="$named_root_csproj"
+              elif [ -n "$root_csproj" ] && [ "$(echo "$root_csproj" | wc -l)" -eq 1 ]; then
+                project_path="$root_csproj"
+              elif [ -n "$named_csproj" ] && [ "$(echo "$named_csproj" | wc -l)" -eq 1 ]; then
+                project_path="$named_csproj"
+              elif [ -n "$csproj_files" ] && [ "$(echo "$csproj_files" | wc -l)" -eq 1 ]; then
+                project_path="$(echo "$csproj_files" | head -n 1)"
+              elif [ -z "$sln_files" ] && [ -z "$csproj_files" ]; then
+                echo "skip_build=true" >> "$GITHUB_OUTPUT"
+                echo "### No .sln or .csproj files found" >> "$GITHUB_STEP_SUMMARY"
+                echo "- Supply project_path input or add a .sln/.csproj to the repository" >> "$GITHUB_STEP_SUMMARY"
+                cd .. && rm -rf target
+                exit 0
+              else
+                echo "skip_build=true" >> "$GITHUB_OUTPUT"
+                echo "### Project auto-detection is ambiguous" >> "$GITHUB_STEP_SUMMARY"
+                echo "- Supply project_path input to disambiguate" >> "$GITHUB_STEP_SUMMARY"
+                cd .. && rm -rf target
+                exit 0
+              fi
+            fi
+          fi
+
+          echo "project_path=$project_path" >> "$GITHUB_OUTPUT"
+
+          # Detect restore_mode
+          has_packages_config=false
+          if find . -name 'packages.config' | grep -q .; then
+            has_packages_config=true
+          fi
+
+          has_legacy_imports=false
+          if [ "$has_dotnet" = true ]; then
+            for f in $(list_files ".csproj" "") $(list_files ".vbproj" ""); do
+              [ -z "$f" ] && continue
+              content="$(read_file "$f")"
+              if echo "$content" | grep -qE '(\.\./)?packages/.+\.(props|targets)|<HintPath>.*(\.\./)?packages/'; then
+                has_legacy_imports=true
+                break
+              fi
+            done
+          fi
+
+          restore_mode="${{ steps.resolve.outputs.restore_mode }}"
+          if [ -z "$restore_mode" ] || [ "$restore_mode" = "auto" ]; then
+            if [ "$has_packages_config" = true ] || [ "$has_legacy_imports" = true ]; then
+              restore_mode="legacy_nuget_strict"
+            else
+              restore_mode="msbuild_restore"
+            fi
+          fi
+          echo "restore_mode=$restore_mode" >> "$GITHUB_OUTPUT"
+
+          # Detect build_mode and SDK-style
+          is_sdk_style=false
+          if [ -n "$project_path" ]; then
+            project_content="$(read_file "$project_path")"
+            if echo "$project_content" | grep -q '<Project Sdk='; then
+              is_sdk_style=true
+            fi
+          fi
+          echo "is_sdk_style=$is_sdk_style" >> "$GITHUB_OUTPUT"
+
+          if [ "$is_sdk_style" != "true" ] && [ "${{ inputs.build_type }}" != "bundle" ]; then
+            echo "- Standalone publish: skipped (project type is not SDK-style)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          is_solution=false
+          if echo "$project_path" | grep -qiE '\.sln$'; then
+            is_solution=true
+          fi
+
+          build_mode="${{ steps.resolve.outputs.build_mode }}"
+          if [ -z "$build_mode" ] || [ "$build_mode" = "auto" ]; then
+            if [ "$is_solution" = true ]; then
+              build_mode="solution_default_output"
+            else
+              build_mode="project_redirect_output"
+            fi
+          fi
+          echo "build_mode=$build_mode" >> "$GITHUB_OUTPUT"
+
+          # Detect required .NET SDK version
+          required_sdk=""
+          if [ "$is_sdk_style" = "true" ] && [ -n "$project_path" ]; then
+            project_content="$(read_file "$project_path")"
+            tfms="$(echo "$project_content" | grep -oP '<TargetFramework[^>]*>\s*net\d+\.\d+\s*</TargetFramework>' | grep -oP 'net\d+\.\d+' || true)"
+            if [ -z "$tfms" ]; then
+              tfms="$(echo "$project_content" | grep -oP '<TargetFrameworks[^>]*>\s*([^<]+)\s*</TargetFrameworks>' | grep -oP 'net\d+\.\d+' || true)"
+            fi
+            if [ -n "$tfms" ]; then
+              highest="$(echo "$tfms" | tr ' ' '\n' | sort -V | tail -n 1)"
+              case "$highest" in
+                net6.0) required_sdk="6.0.x" ;;
+                net7.0) required_sdk="7.0.x" ;;
+                net8.0) required_sdk="8.0.x" ;;
+                net9.0) required_sdk="9.0.x" ;;
+                *)     required_sdk="8.0.x" ;;
+              esac
+            else
+              required_sdk="8.0.x"
+            fi
+          fi
+          echo "required_sdk=$required_sdk" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Detected project"
+            echo "- project: $project_path"
+            echo "- restore mode: $restore_mode"
+            echo "- build mode: $build_mode"
+            echo "- SDK-style: $is_sdk_style"
+            if [ -n "$required_sdk" ]; then
+              echo "- required SDK: $required_sdk"
+            else
+              echo "- required SDK: none (MSBuild only)"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          cd .. && rm -rf target
 
   build:
     needs: preflight
@@ -294,12 +490,10 @@ jobs:
         uses: NuGet/setup-nuget@v2
 
       - name: Setup .NET SDK
+        if: needs.preflight.outputs.required_sdk != ''
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: |
-            6.0.x
-            7.0.x
-            8.0.x
+          dotnet-version: ${{ needs.preflight.outputs.required_sdk }}
 
       - name: Clone target repository
         working-directory: ${{ github.workspace }}
@@ -337,70 +531,22 @@ jobs:
             Write-Host "Injected reference assemblies"
           }
 
-      - name: Find project file
+      - name: Resolve project path
         id: project
         working-directory: ${{ github.workspace }}\target
         run: |
-          $repoName = [System.IO.Path]::GetFileName((Get-Location).Path)
-          $manual = "${{ inputs.project_path }}"
-          if ([string]::IsNullOrWhiteSpace($manual)) {
-            $manual = "${{ needs.preflight.outputs.project_path }}"
+          $projectPath = "${{ needs.preflight.outputs.project_path }}"
+          if ([string]::IsNullOrWhiteSpace($projectPath)) {
+            $projectPath = "${{ inputs.project_path }}"
           }
 
-          if (-not [string]::IsNullOrWhiteSpace($manual)) {
-            $resolved = Join-Path (Get-Location) $manual
-            if (-not (Test-Path $resolved)) { throw "Provided project_path not found: $manual" }
-            $projectFile = (Resolve-Path $resolved).Path
-          } else {
-            $slnCandidates = Get-ChildItem -Recurse -Filter *.sln | Where-Object {
-              $_.FullName -notmatch '(?i)test'
-            } | Sort-Object FullName
-            $rootSlnCandidates = $slnCandidates | Where-Object {
-              $_.FullName -match [regex]::Escape((Get-Location).Path) + '\\[^\\]+\.sln$'
-            }
-            $namedRootSlnCandidates = $rootSlnCandidates | Where-Object {
-              $_.BaseName -ieq $repoName
-            }
-            $namedSlnCandidates = $slnCandidates | Where-Object {
-              $_.BaseName -ieq $repoName
-            }
-
-            if ($namedRootSlnCandidates.Count -eq 1) {
-              $projectFile = $namedRootSlnCandidates[0].FullName
-            } elseif ($rootSlnCandidates.Count -eq 1) {
-              $projectFile = $rootSlnCandidates[0].FullName
-            } elseif ($namedSlnCandidates.Count -eq 1) {
-              $projectFile = $namedSlnCandidates[0].FullName
-            } elseif ($slnCandidates.Count -eq 1) {
-              $projectFile = $slnCandidates[0].FullName
-            } else {
-              $csprojCandidates = Get-ChildItem -Recurse -Filter *.csproj | Where-Object {
-                $_.FullName -notmatch '(?i)test'
-              } | Sort-Object FullName
-              $rootCsprojCandidates = $csprojCandidates | Where-Object {
-                $_.FullName -match [regex]::Escape((Get-Location).Path) + '\\[^\\]+\.csproj$'
-              }
-              $namedRootCsprojCandidates = $rootCsprojCandidates | Where-Object {
-                $_.BaseName -ieq $repoName
-              }
-              $namedCsprojCandidates = $csprojCandidates | Where-Object {
-                $_.BaseName -ieq $repoName
-              }
-              if ($namedRootCsprojCandidates.Count -eq 1) {
-                $projectFile = $namedRootCsprojCandidates[0].FullName
-              } elseif ($rootCsprojCandidates.Count -eq 1) {
-                $projectFile = $rootCsprojCandidates[0].FullName
-              } elseif ($namedCsprojCandidates.Count -eq 1) {
-                $projectFile = $namedCsprojCandidates[0].FullName
-              } elseif ($csprojCandidates.Count -eq 1) {
-                $projectFile = $csprojCandidates[0].FullName
-              } elseif ($csprojCandidates.Count -eq 0 -and $slnCandidates.Count -eq 0) {
-                throw "No .sln or .csproj files found. Supply project_path."
-              } else {
-                throw "Project auto-detection is ambiguous. Supply project_path."
-              }
-            }
+          if ([string]::IsNullOrWhiteSpace($projectPath)) {
+            throw "No project path available from preflight or inputs."
           }
+
+          $resolved = Join-Path (Get-Location) $projectPath
+          if (-not (Test-Path $resolved)) { throw "Project path not found: $resolved" }
+          $projectFile = (Resolve-Path $resolved).Path
 
           Write-Host "Project: $projectFile"
           "path=$projectFile" >> $env:GITHUB_OUTPUT
@@ -420,11 +566,11 @@ jobs:
             }
           }
 
-          $hasPackagesConfig = (Get-ChildItem -Recurse -Filter packages.config | Measure-Object).Count -gt 0
-          $hasLegacyPackageImports = (Get-ChildItem -Recurse -Include *.csproj,*.vbproj -File | Select-String -Pattern '(?i)(?:\.\.[\\/])?packages[\\/].+\.(?:props|targets)|<HintPath>.*(?:\.\.[\\/])?packages[\\/]' | Select-Object -First 1) -ne $null
           $packagesDir = Join-Path $solutionDir "packages"
           $restoreMode = "${{ needs.preflight.outputs.restore_mode }}"
           if ([string]::IsNullOrWhiteSpace($restoreMode) -or $restoreMode -eq "auto") {
+            $hasPackagesConfig = (Get-ChildItem -Recurse -Filter packages.config | Measure-Object).Count -gt 0
+            $hasLegacyPackageImports = (Get-ChildItem -Recurse -Include *.csproj,*.vbproj -File | Select-String -Pattern '(?i)(?:\.\.[\\/])?packages[\\/].+\.(?:props|targets)|<HintPath>.*(?:\.\.[\\/])?packages[\\/]' | Select-Object -First 1) -ne $null
             if ($hasPackagesConfig -or $hasLegacyPackageImports) {
               $restoreMode = "legacy_nuget_strict"
             } else {
@@ -456,9 +602,7 @@ jobs:
             }
             default {
               nuget restore "$restoreTarget" -NonInteractive -PackagesDirectory "$packagesDir" -SolutionDirectory "$repoRoot"
-              if ($LASTEXITCODE -ne 0 -and $hasPackagesConfig) {
-                throw "NuGet restore failed"
-              }
+              if ($LASTEXITCODE -ne 0) { throw "NuGet restore failed" }
 
               msbuild "$restoreTarget" /t:Restore /p:RestorePackagesConfig=true /verbosity:minimal
               if ($LASTEXITCODE -ne 0) {
@@ -536,6 +680,40 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw "Build failed" }
           }
 
+      - name: Build standalone
+        if: steps.project.outputs.path != '' && needs.preflight.outputs.is_sdk_style == 'true' && (inputs.build_type == 'standalone' || inputs.build_type == 'both')
+        run: |
+          $projectFile = "${{ steps.project.outputs.path }}"
+          $outStandalone = "${{ github.workspace }}\out-standalone"
+          New-Item -ItemType Directory -Force -Path $outStandalone | Out-Null
+
+          $cfg = "${{ inputs.configuration }}"
+          if ([string]::IsNullOrWhiteSpace($cfg)) {
+            $cfg = "${{ needs.preflight.outputs.configuration }}"
+          }
+          if ([string]::IsNullOrWhiteSpace($cfg)) { $cfg = "Release" }
+
+          $fw = "${{ inputs.target_framework }}"
+          if ([string]::IsNullOrWhiteSpace($fw)) {
+            $fw = "${{ needs.preflight.outputs.target_framework }}"
+          }
+
+          $publishArgs = @(
+            "publish",
+            $projectFile,
+            "--configuration", $cfg,
+            "--self-contained",
+            "-p:PublishSingleFile=true",
+            "--output", $outStandalone
+          )
+          if (-not [string]::IsNullOrWhiteSpace($fw)) {
+            $publishArgs += "--framework"
+            $publishArgs += $fw
+          }
+
+          dotnet @publishArgs
+          if ($LASTEXITCODE -ne 0) { throw "Standalone publish failed" }
+
       - name: Collect artifacts
         id: collect
         working-directory: ${{ github.workspace }}\target
@@ -569,6 +747,9 @@ jobs:
 
           $projectFile = "${{ steps.project.outputs.path }}"
           $searchRoots = @("${{ github.workspace }}\out")
+          if (Test-Path "${{ github.workspace }}\out-standalone") {
+            $searchRoots += "${{ github.workspace }}\out-standalone"
+          }
           if ($projectFile.EndsWith(".sln")) {
             $searchRoots += (Get-Location).Path
           } else {
@@ -603,61 +784,53 @@ jobs:
           $copied | Set-Content "${{ github.workspace }}\collected-files.txt"
           "count=$($copied.Count)" >> $env:GITHUB_OUTPUT
 
-      - name: Create release bundle and metadata
+      - name: Create release bundles
         id: bundle
         run: |
           $artifactDir = "${{ github.workspace }}\artifact"
-          $bundlePath = Join-Path "${{ github.workspace }}" "${{ needs.preflight.outputs.asset_prefix }}_bundle.zip"
+          $assetPrefix = "${{ needs.preflight.outputs.asset_prefix }}"
+
+          $bundlePath = Join-Path "${{ github.workspace }}" "${assetPrefix}_bundle.zip"
           if (Test-Path $bundlePath) { Remove-Item $bundlePath -Force }
           Compress-Archive -Path (Join-Path $artifactDir '*') -DestinationPath $bundlePath
+          "bundle_path=$bundlePath" >> $env:GITHUB_OUTPUT
 
-          $files = @()
-          foreach ($name in Get-Content "${{ github.workspace }}\collected-files.txt") {
-            $path = Join-Path $artifactDir $name
-            if (Test-Path $path) {
-              $hash = (Get-FileHash -Algorithm SHA256 $path).Hash
-              $files += [ordered]@{ name = $name; sha256 = $hash }
+          $standaloneDir = "${{ github.workspace }}\out-standalone"
+          $standaloneAssetPath = $null
+          $directExe = $null
+          if (Test-Path $standaloneDir) {
+            $standaloneCollect = "${{ github.workspace }}\artifact-standalone"
+            New-Item -ItemType Directory -Force -Path $standaloneCollect | Out-Null
+            Get-ChildItem "$standaloneDir" -Recurse -File | ForEach-Object {
+              $skip = $false
+              foreach ($exclude in $excludePatterns) {
+                if ($_.Name -like $exclude) { $skip = $true; break }
+              }
+              if (-not $skip) { Copy-Item "$($_.FullName)" "$standaloneCollect" -Force }
+            }
+            $files = @(Get-ChildItem -Path $standaloneCollect -File)
+            if ($files.Count -eq 1 -and $files[0].Extension -eq '.exe') {
+              $directExe = Join-Path "${{ github.workspace }}" "${assetPrefix}.exe"
+              Copy-Item $files[0].FullName $directExe
+              "standalone_exe_path=$directExe" >> $env:GITHUB_OUTPUT
+              $standaloneAssetPath = $directExe
+            } else {
+              $standaloneBundlePath = Join-Path "${{ github.workspace }}" "${assetPrefix}_standalone.zip"
+              if (Test-Path $standaloneBundlePath) { Remove-Item $standaloneBundlePath -Force }
+              Compress-Archive -Path (Join-Path $standaloneCollect '*') -DestinationPath $standaloneBundlePath
+              "standalone_bundle_path=$standaloneBundlePath" >> $env:GITHUB_OUTPUT
+              $standaloneAssetPath = $standaloneBundlePath
             }
           }
 
-          $projectFile = "${{ steps.project.outputs.path }}"
-          $cfg = "${{ inputs.configuration }}"
-          if ([string]::IsNullOrWhiteSpace($cfg)) {
-            $cfg = "${{ needs.preflight.outputs.configuration }}"
-          }
-          if ([string]::IsNullOrWhiteSpace($cfg)) { $cfg = "Release" }
-
-          $fw = "${{ inputs.target_framework }}"
-          if ([string]::IsNullOrWhiteSpace($fw)) {
-            $fw = "${{ needs.preflight.outputs.target_framework }}"
-          }
-
-          $metadata = [ordered]@{
-            tool_id = "${{ needs.preflight.outputs.tool_id }}"
-            repo_url = "${{ needs.preflight.outputs.repo_url }}"
-            resolved_ref = "${{ needs.preflight.outputs.resolved_ref }}"
-            resolved_commit = "${{ needs.preflight.outputs.resolved_commit }}"
-            resolved_tag = "${{ needs.preflight.outputs.resolved_tag }}"
-            version_label = "${{ needs.preflight.outputs.version_label }}"
-            project_file = $projectFile
-            configuration = $cfg
-            target_framework = $fw
-            built_at_utc = (Get-Date).ToUniversalTime().ToString("o")
-            files = $files
-          }
-
-          $metadataPath = Join-Path "${{ github.workspace }}" "${{ needs.preflight.outputs.asset_prefix }}_metadata.json"
-          $metadata | ConvertTo-Json -Depth 5 | Set-Content $metadataPath -Encoding UTF8
-
-          "bundle_path=$bundlePath" >> $env:GITHUB_OUTPUT
-          "metadata_path=$metadataPath" >> $env:GITHUB_OUTPUT
+          $assets = @("$bundlePath")
+          if ($standaloneAssetPath) { $assets += $standaloneAssetPath }
+          "asset_paths=$($assets -join ';')" >> $env:GITHUB_OUTPUT
 
       - name: Publish release assets
         run: |
           $tag = "${{ needs.preflight.outputs.release_tag }}"
           $name = "${{ needs.preflight.outputs.release_name }}"
-          $bundle = "${{ steps.bundle.outputs.bundle_path }}"
-          $metadata = "${{ steps.bundle.outputs.metadata_path }}"
           $ErrorActionPreference = "Continue"
           $PSNativeCommandUseErrorActionPreference = $false
 
@@ -665,7 +838,9 @@ jobs:
             gh release delete "$tag" --repo "${{ github.repository }}" --yes --cleanup-tag *> $null
           }
 
-          gh release create "$tag" "$bundle" "$metadata" `
+          $assetPaths = "${{ steps.bundle.outputs.asset_paths }}"
+          $assets = $assetPaths.Split(';')
+          gh release create "$tag" @assets `
             --repo "${{ github.repository }}" `
             --title "$name" `
             --notes "Automated build for ${{ needs.preflight.outputs.repo_url }} @ ${{ needs.preflight.outputs.resolved_commit }}"
@@ -711,6 +886,7 @@ jobs:
           if ($projectPath.StartsWith($targetRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
             $projectPath = $projectPath.Substring($targetRoot.Length)
           }
+          $projectPath = $projectPath -replace '\\', '/'
 
           $profile = [ordered]@{
             tool_id = "${{ needs.preflight.outputs.tool_id }}"
@@ -740,8 +916,11 @@ jobs:
             git fetch origin "$branch"
             if ($LASTEXITCODE -ne 0) { continue }
 
-            git reset --hard "origin/$branch"
-            if ($LASTEXITCODE -ne 0) { continue }
+            git rebase "origin/$branch"
+            if ($LASTEXITCODE -ne 0) {
+              git rebase --abort
+              continue
+            }
 
             Set-Content -Path $profileFile -Value $profileContent -Encoding UTF8
             git add $profileFile

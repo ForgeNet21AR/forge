@@ -1,7 +1,7 @@
 {
   "tool_id": "sharpmove",
-  "repo_url": "https://github.com/0xthirteen/SharpMove",
-  "project_path": "SharpMove\\SharpMove.sln",
+  "repo_url": "https://github.com/0xthirteen/sharpmove",
+  "project_path": "SharpMove/SharpMove.sln",
   "configuration": "Release",
   "target_framework": "",
   "version_strategy": "tag_then_commit",
@@ -10,4 +10,3 @@
   "asset_include": null,
   "asset_exclude": null
 }
-

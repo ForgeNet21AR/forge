@@ -159,7 +159,7 @@ def normalize_repo_url(repo_url: str) -> str:
     if repo_url.startswith("http://"):
         repo_url = "https://" + repo_url[len("http://") :]
 
-    return repo_url
+    return repo_url.lower()
 
 
 def github_slug(repo_url: str) -> str:
@@ -277,10 +277,10 @@ def command_list_enabled() -> int:
 
 
 def command_resolve(argv: list[str]) -> int:
-    if len(argv) != 4:
-        raise SystemExit("usage: resolve <mode> <tool_id> <repo_url>")
+    if len(argv) != 3:
+        raise SystemExit("usage: resolve <tool_id> <repo_url>")
 
-    _, _mode, tool_id, repo_url = argv
+    _, tool_id, repo_url = argv
     data = load_catalog()
     normalized_repo = normalize_repo_url(repo_url)
     tool_from_id = find_tool(data, tool_id=tool_id)

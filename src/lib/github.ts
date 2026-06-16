@@ -32,7 +32,7 @@ function getToken(context: APIContext): string {
   return getRequiredEnv(context, "FORGE_GITHUB_TOKEN");
 }
 
-async function githubRequest<T>(
+export async function githubRequest<T>(
   context: APIContext,
   path: string,
   init: RequestInit = {},
@@ -166,9 +166,25 @@ export async function getRun(context: APIContext, runId: string) {
   };
 }
 
+async function fetchAllReleases(context: APIContext, repo: string): Promise<GitHubRelease[]> {
+  const all: GitHubRelease[] = [];
+  let page = 1;
+  while (true) {
+    const releases = await githubRequest<GitHubRelease[]>(
+      context,
+      `/repos/${repo}/releases?per_page=100&page=${page}`,
+    );
+    if (!releases.length) break;
+    all.push(...releases);
+    if (releases.length < 100) break;
+    page++;
+  }
+  return all;
+}
+
 export async function listForgeReleases(context: APIContext, repoUrl: string) {
   const repo = getForgeRepo(context);
-  const releases = await githubRequest<GitHubRelease[]>(context, `/repos/${repo}/releases?per_page=50`);
+  const releases = await fetchAllReleases(context, repo);
   const filtered = repoUrl
     ? releases.filter((release) => {
         const toolId = findCatalogEntryByRepo(repoUrl)?.id ?? deriveToolId(repoUrl);
@@ -176,22 +192,18 @@ export async function listForgeReleases(context: APIContext, repoUrl: string) {
       })
     : releases.filter((release) => release.tag_name.startsWith("tool/"));
   
-  // Sort by date (newest first) and limit to 20 most recent
-  const sorted = filtered
-    .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
-    .slice(0, 20);
+  filtered.sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime());
     
-  return sorted
-    .map((release) => ({
-      tag: release.tag_name,
-      name: release.name,
-      published_at: release.published_at,
-      assets: release.assets.map((asset) => ({
-        id: asset.id,
-        name: asset.name,
-        size: asset.size,
-      })),
-    }));
+  return filtered.map((release) => ({
+    tag: release.tag_name,
+    name: release.name,
+    published_at: release.published_at,
+    assets: release.assets.map((asset) => ({
+      id: asset.id,
+      name: asset.name,
+      size: asset.size,
+    })),
+  }));
 }
 
 export async function streamReleaseAsset(context: APIContext, tag: string, assetName: string): Promise<Response> {

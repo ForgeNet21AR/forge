@@ -1,7 +1,7 @@
 {
   "tool_id": "peass-ng",
-  "repo_url": "https://github.com/peass-ng/PEASS-ng",
-  "project_path": "winPEAS\\winPEASexe\\winPEAS.sln",
+  "repo_url": "https://github.com/peass-ng/peass-ng",
+  "project_path": "winPEAS/winPEASexe/winPEAS.sln",
   "configuration": "Release",
   "target_framework": "",
   "version_strategy": "tag_then_commit",
@@ -10,4 +10,3 @@
   "asset_include": null,
   "asset_exclude": null
 }
-

@@ -1,6 +1,6 @@
 {
   "tool_id": "sweetpotato",
-  "repo_url": "https://github.com/CCob/SweetPotato",
+  "repo_url": "https://github.com/ccob/sweetpotato",
   "project_path": "SweetPotato.sln",
   "configuration": "Release",
   "target_framework": "",

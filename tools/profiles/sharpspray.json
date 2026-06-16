@@ -1,6 +1,6 @@
 {
   "tool_id": "sharpspray",
-  "repo_url": "https://github.com/iomoath/SharpSpray",
+  "repo_url": "https://github.com/iomoath/sharpspray",
   "project_path": "SharpSpray.sln",
   "configuration": "Release",
   "target_framework": "",

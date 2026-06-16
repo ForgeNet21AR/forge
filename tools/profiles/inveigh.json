@@ -1,12 +1,12 @@
 {
   "tool_id": "inveigh",
-  "repo_url": "https://github.com/Kevin-Robertson/Inveigh",
+  "repo_url": "https://github.com/kevin-robertson/inveigh",
   "project_path": "Inveigh.sln",
   "configuration": "Release",
   "target_framework": "",
   "version_strategy": "tag_then_commit",
-  "restore_mode": "auto",
-  "build_mode": "auto",
+  "restore_mode": "msbuild_restore",
+  "build_mode": "solution_default_output",
   "asset_include": null,
   "asset_exclude": null
 }

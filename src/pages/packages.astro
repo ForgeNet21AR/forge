@@ -1,136 +1,265 @@
 ---
 import AppLayout from "../layouts/AppLayout.astro";
-import { catalog } from "../lib/forge-data";
 
 export const prerender = false;
-const knownTools = catalog.filter((entry) => entry.enabled);
 ---
 
-<AppLayout title="forge - Browse Packages" description="Browse completed builds and download artifacts from GitHub Releases.">
+<AppLayout title="forge - Packages" description="Browse and download built packages from GitHub Releases.">
   <section class="hero">
     <section class="panel">
       <p class="kicker">Packages</p>
       <h1>Download builds.</h1>
-      <p>Browse releases or filter by repo. Use the input above to search.</p>
+      <p>Every build produces a downloadable release. Search or browse below.</p>
     </section>
-    <aside class="panel">
-      <div class="field">
-        <label for="results-repo">Repository URL</label>
-        <input id="results-repo" placeholder="https://github.com/FuzzySecurity/StandIn" />
-      </div>
-      <div class="inline-actions" style="margin-top: 1rem;">
-        <button id="results-button" type="button">Load releases</button>
-        <button id="results-all" class="secondary" type="button">Load all</button>
+    <aside class="panel stats">
+      <div class="stat">
+        <strong id="release-count">-</strong>
+        <span class="muted">releases loaded</span>
       </div>
     </aside>
   </section>
 
   <section class="panel">
     <div class="toolbar">
-      <h2 class="section-title">Releases</h2>
-      <div id="pill-container" class="pill-list catalog-pills">
-        {knownTools.map((tool) => (
-          <button class="pill" type="button" data-result-repo={tool.repo_url}>{tool.id}</button>
-        ))}
+      <div class="toolbar-left" style="display: flex; align-items: center; gap: 0.75rem; flex: 1;">
+        <div class="field" style="flex: 1; margin: 0;">
+          <div class="search-wrap">
+            <input id="packages-search" placeholder="Search tools by name or tag..." style="min-width: 200px;" autocomplete="off" />
+            <div id="search-suggestions" class="suggestions-dropdown" style="display:none"></div>
+          </div>
+        </div>
+        <button id="load-all-btn" type="button" class="secondary" style="flex-shrink: 0;">Browse all</button>
       </div>
     </div>
-    <div id="results-list" class="empty">No packages yet.</div>
+    <div id="results-list" class="empty">Load releases to see available packages.</div>
   </section>
 
+  <div id="release-modal" class="modal-overlay" style="display:none">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modal-title"></h2>
+        <button id="modal-close" class="modal-close">&times;</button>
+      </div>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
   <script>
-    const pillContainer = document.getElementById("pill-container");
-    
-    async function loadResults(repoUrl = "") {
-      const target = document.querySelector("#results-list") as HTMLElement;
-      
-      target.innerHTML = "<div class='empty'>Loading…</div>";
-      const query = repoUrl ? `?repo_url=${encodeURIComponent(repoUrl)}` : "";
-      const response = await fetch(`/api/releases${query}`);
-      
-      if (!response.ok) {
-        target.innerHTML = "<div class='empty'>Unable to load packages.</div>";
-        return;
-      }
-      
-      const data = await response.json();
-      
-      if (!data.releases?.length) {
-        if (repoUrl) {
-          target.innerHTML = `
-            <div class='empty'>
-              <p>No packages found for <strong>${repoUrl}</strong>.</p>
-              <p style="margin-top: 0.5rem;">Want to build it? <a href="/build?repo=${encodeURIComponent(repoUrl)}" class="button secondary" style="margin-top: 0.5rem; display: inline-flex;">Build it</a></p>
-            </div>
-          `;
-        } else {
-          target.innerHTML = "<div class='empty'>No packages found.</div>";
-        }
-        return;
-      }
-      
-      target.innerHTML = data.releases
-        .map((release: { name: string; tag: string; published_at: string; assets: Array<{ name: string; size: number }> }) => `
-          <article class="result-card">
-            <div class="split">
-              <strong>${release.name ?? release.tag}</strong>
-              <span class="status success">${release.assets.length} assets</span>
-            </div>
-            <div class="pill-list" style="margin-top: 0.75rem;">
-              ${release.assets
-                .map((asset: { name: string; size: number }) => {
-                  const sizeInBytes = asset.size;
-                  let sizeDisplay: string;
-                  if (sizeInBytes < 1024 * 1024) {
-                    sizeDisplay = `${(sizeInBytes / 1024).toFixed(1)} KB`;
-                  } else {
-                    sizeDisplay = `${(sizeInBytes / 1024 / 1024).toFixed(1)} MB`;
-                  }
-                  
-                  return `
-                    <a class="button secondary asset-button" href="/api/releases/asset?tag=${encodeURIComponent(release.tag)}&name=${encodeURIComponent(asset.name)}">
-                      <span class="asset-name">${asset.name}</span>
-                      <span class="asset-size">${sizeDisplay}</span>
-                    </a>
-                  `;
-                })
-                .join("")}
-            </div>
-          </article>
-        `)
-        .join("");
+    interface ReleaseAsset {
+      name: string;
+      size: number;
     }
 
-    function setActivePill(repoUrl: string) {
-      pillContainer?.querySelectorAll(".pill").forEach((p) => p.classList.remove("active"));
-      if (repoUrl) {
-        pillContainer?.querySelectorAll("[data-result-repo]").forEach((p) => {
-          if ((p as HTMLElement).dataset.resultRepo === repoUrl) {
-            p.classList.add("active");
-          }
+    interface Release {
+      tag: string;
+      name: string | null;
+      published_at: string;
+      assets: ReleaseAsset[];
+    }
+
+    let allReleases: Release[] = [];
+
+    const resultsList = document.getElementById("results-list") as HTMLElement;
+    const searchInput = document.getElementById("packages-search") as HTMLInputElement;
+    const suggestionsBox = document.getElementById("search-suggestions") as HTMLElement;
+    const releaseCount = document.getElementById("release-count") as HTMLElement;
+    const modal = document.getElementById("release-modal") as HTMLElement;
+    const modalTitle = document.getElementById("modal-title") as HTMLElement;
+    const modalBody = document.getElementById("modal-body") as HTMLElement;
+    const modalClose = document.getElementById("modal-close") as HTMLElement;
+    let toolIds: string[] = [];
+
+    function extractToolId(tag: string): string {
+      const match = tag.match(/^tool\/([^/]+)\//);
+      return match ? match[1] : "";
+    }
+
+    function formatSize(bytes: number): string {
+      if (bytes < 1024 * 1024) {
+        return `${(bytes / 1024).toFixed(1)} KB`;
+      }
+      return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+    }
+
+    function showModal(toolId: string, releases: Release[]) {
+      modalTitle.textContent = `${toolId} (${releases.length} release${releases.length !== 1 ? "s" : ""})`;
+      modalBody.innerHTML = releases.map((r) => `
+        <div class="release-version">
+          <div class="release-version-tag">${r.name ?? r.tag}</div>
+          <div class="release-version-assets">
+            ${r.assets.map((a) => `
+              <a class="release-asset-link" href="/api/releases/asset?tag=${encodeURIComponent(r.tag)}&name=${encodeURIComponent(a.name)}">
+                <span class="release-asset-name">${a.name}</span>
+                <span class="asset-size">${formatSize(a.size)}</span>
+              </a>
+            `).join("")}
+          </div>
+        </div>
+      `).join("");
+      modal.style.display = "";
+    }
+
+    function closeModal() {
+      modal.style.display = "none";
+    }
+
+    modalClose?.addEventListener("click", closeModal);
+    modal?.addEventListener("click", (e) => {
+      if (e.target === modal) closeModal();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeModal();
+    });
+
+    function showSuggestions(query: string) {
+      const q = query.toLowerCase();
+      const matches = q ? toolIds.filter((id) => id.includes(q)) : [];
+      if (!matches.length || searchInput !== document.activeElement) {
+        suggestionsBox.style.display = "none";
+        return;
+      }
+      suggestionsBox.innerHTML = matches
+        .map((id) => `<div class="suggestion-item" data-tool="${id}">${id}</div>`)
+        .join("");
+      suggestionsBox.style.display = "";
+    }
+
+    function updateSuggestions(releases: Release[]) {
+      const seen = new Set<string>();
+      toolIds = [];
+      for (const r of releases) {
+        const id = extractToolId(r.tag);
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        toolIds.push(id);
+      }
+      showSuggestions(searchInput.value);
+    }
+
+    function renderReleases(releases: Release[], searchTerm: string = "") {
+      let filtered = releases;
+
+      if (searchTerm) {
+        const q = searchTerm.toLowerCase();
+        filtered = filtered.filter((r) => {
+          const toolId = extractToolId(r.tag);
+          return toolId.includes(q) || r.tag.toLowerCase().includes(q) || (r.name && r.name.toLowerCase().includes(q));
         });
       }
+
+      releaseCount.textContent = String(filtered.length);
+
+      if (!filtered.length) {
+        resultsList.innerHTML = `<div class="empty">No releases match your criteria.</div>`;
+        return;
+      }
+
+      const groups: Record<string, Release[]> = {};
+      filtered.forEach((r) => {
+        const id = extractToolId(r.tag);
+        if (!groups[id]) groups[id] = [];
+        groups[id].push(r);
+      });
+
+      resultsList.innerHTML = `<div class="release-grid">${Object.entries(groups).map(([toolId, toolReleases]) => `
+        <div class="release-card" data-tool="${toolId}" role="button" tabindex="0">
+          <div class="release-card-top">
+            <strong class="release-tool">${toolId}</strong>
+            <span class="status success">${toolReleases.length} release${toolReleases.length !== 1 ? "s" : ""}</span>
+          </div>
+        </div>
+      `).join("")}</div>`;
+
+      resultsList.querySelectorAll(".release-card").forEach((card) => {
+        const toolId = (card as HTMLElement).dataset.tool;
+        if (!toolId) return;
+        const toolReleases = groups[toolId];
+        card.addEventListener("click", () => showModal(toolId, toolReleases));
+      });
     }
 
-    document.querySelectorAll("[data-result-repo]").forEach((button) => {
-      button.addEventListener("click", () => {
-        const btn = button as HTMLButtonElement;
-        setActivePill(btn.dataset.resultRepo ?? "");
-        loadResults(btn.dataset.resultRepo ?? "");
-      });
+    async function loadResults() {
+      resultsList.innerHTML = "<div class='empty'>Loading…</div>";
+      const response = await fetch("/api/releases");
+
+      if (!response.ok) {
+        resultsList.innerHTML = "<div class='empty'>Unable to load packages.</div>";
+        return;
+      }
+
+      const data = await response.json();
+
+      if (!data.releases?.length) {
+        releaseCount.textContent = "0";
+        resultsList.innerHTML = "<div class='empty'>No packages found yet. Build something!</div>";
+        return;
+      }
+
+      allReleases = data.releases;
+      updateSuggestions(allReleases);
+      renderReleases(allReleases, searchInput.value);
+    }
+
+    document.getElementById("load-all-btn")?.addEventListener("click", () => {
+      searchInput.value = "";
+      loadResults();
     });
 
-    document.querySelector("#results-button")?.addEventListener("click", () => {
-      const input = document.querySelector("#results-repo") as HTMLInputElement;
-      setActivePill(input.value.trim());
-      loadResults(input.value.trim());
+    let suggestionIndex = -1;
+
+    function selectSuggestion(tool: string) {
+      searchInput.value = tool;
+      suggestionsBox.style.display = "none";
+      suggestionIndex = -1;
+      renderReleases(allReleases, tool);
+    }
+
+    searchInput?.addEventListener("input", () => {
+      renderReleases(allReleases, searchInput.value);
+      showSuggestions(searchInput.value);
+      suggestionIndex = -1;
     });
 
-    document.querySelector("#results-all")?.addEventListener("click", () => {
-      (document.querySelector("#results-repo") as HTMLInputElement).value = "";
-      setActivePill("");
-      loadResults("");
+    searchInput?.addEventListener("focus", () => showSuggestions(searchInput.value));
+
+    searchInput?.addEventListener("blur", () => {
+      setTimeout(() => { suggestionsBox.style.display = "none"; }, 150);
     });
 
-    loadResults("");
+    searchInput?.addEventListener("keydown", (e) => {
+      const items = suggestionsBox.querySelectorAll(".suggestion-item");
+      if (!items.length) return;
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        items[suggestionIndex]?.classList.remove("active");
+        suggestionIndex = Math.min(suggestionIndex + 1, items.length - 1);
+        items[suggestionIndex]?.classList.add("active");
+        items[suggestionIndex]?.scrollIntoView({ block: "nearest" });
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        items[suggestionIndex]?.classList.remove("active");
+        suggestionIndex = Math.max(suggestionIndex - 1, 0);
+        items[suggestionIndex]?.classList.add("active");
+        items[suggestionIndex]?.scrollIntoView({ block: "nearest" });
+      } else if (e.key === "Enter" && suggestionIndex >= 0) {
+        e.preventDefault();
+        const tool = items[suggestionIndex]?.getAttribute("data-tool");
+        if (tool) selectSuggestion(tool);
+      } else if (e.key === "Escape") {
+        suggestionsBox.style.display = "none";
+        suggestionIndex = -1;
+      }
+    });
+
+    suggestionsBox?.addEventListener("click", (e) => {
+      const item = (e.target as HTMLElement).closest(".suggestion-item") as HTMLElement | null;
+      if (!item) return;
+      const tool = item.dataset.tool;
+      if (!tool) return;
+      selectSuggestion(tool);
+    });
+
+    loadResults();
   </script>
 </AppLayout>

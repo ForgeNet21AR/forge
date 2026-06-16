@@ -1,13 +1,12 @@
 {
   "tool_id": "sigmapotato",
-  "repo_url": "https://github.com/tylerdotrar/SigmaPotato",
+  "repo_url": "https://github.com/tylerdotrar/sigmapotato",
   "project_path": "SigmaPotato.csproj",
   "configuration": "Release",
   "target_framework": "",
   "version_strategy": "tag_then_commit",
-  "restore_mode": "auto",
-  "build_mode": "auto",
+  "restore_mode": "msbuild_restore",
+  "build_mode": "project_redirect_output",
   "asset_include": null,
   "asset_exclude": null
 }
-

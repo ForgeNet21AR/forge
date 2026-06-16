@@ -1,0 +1,65 @@
+---
+import AppLayout from "../layouts/AppLayout.astro";
+import { catalog } from "../lib/forge-data";
+
+export const prerender = false;
+---
+
+<AppLayout title="forge - Inventory" description="Browse all cataloged tools in the forge.">
+  <section class="hero">
+    <section class="panel">
+      <p class="kicker">Inventory</p>
+      <h1>Tool catalog.</h1>
+      <p>All tools available to build in the forge. <span class="muted">"Enabled" means the tool is included in automated batch builds.</span></p>
+    </section>
+    <aside class="panel stats">
+      <div class="stat">
+        <strong>{catalog.length}</strong>
+        <span class="muted">tools cataloged</span>
+      </div>
+    </aside>
+  </section>
+
+  <section class="panel">
+    <div class="toolbar">
+      <div class="toolbar-left" style="display: flex; align-items: center; gap: 0.75rem; flex: 1;">
+        <div class="field" style="flex: 1; margin: 0;">
+          <input id="inventory-search" placeholder="Search tools by name or repo..." style="min-width: 200px;" autocomplete="off" />
+        </div>
+        <span id="filtered-count" class="muted" style="flex-shrink: 0;"></span>
+      </div>
+    </div>
+    <div id="inventory-list">
+      <div class="release-grid" id="inventory-grid">
+        {catalog.map((entry) => (
+          <a class="release-card" href={entry.repo_url} target="_blank" rel="noreferrer" style="text-decoration: none;">
+            <div class="release-card-top">
+              <strong class="release-tool">{entry.id}</strong>
+              <span class="status {entry.enabled ? "success" : "fail"}">{entry.enabled ? "enabled" : "disabled"}</span>
+            </div>
+            <div class="release-tag" style="overflow-wrap: break-word;">{entry.repo_url}</div>
+          </a>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <script>
+    const grid = document.getElementById("inventory-grid") as HTMLElement;
+    const searchInput = document.getElementById("inventory-search") as HTMLInputElement;
+    const filteredCount = document.getElementById("filtered-count") as HTMLElement;
+    const cards = Array.from(grid.querySelectorAll(".release-card")) as HTMLElement[];
+
+    searchInput?.addEventListener("input", () => {
+      const q = searchInput.value.toLowerCase();
+      let shown = 0;
+      cards.forEach((card) => {
+        const text = (card.textContent || "").toLowerCase();
+        const match = !q || text.includes(q);
+        card.style.display = match ? "" : "none";
+        if (match) shown++;
+      });
+      filteredCount.textContent = shown < cards.length ? `${shown} shown` : "";
+    });
+  </script>
+</AppLayout>

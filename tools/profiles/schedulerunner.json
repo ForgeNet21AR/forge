@@ -1,6 +1,6 @@
 {
   "tool_id": "schedulerunner",
-  "repo_url": "https://github.com/netero1010/ScheduleRunner",
+  "repo_url": "https://github.com/netero1010/schedulerunner",
   "project_path": "ScheduleRunner.sln",
   "configuration": "Release",
   "target_framework": "",

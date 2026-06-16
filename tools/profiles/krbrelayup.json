@@ -1,12 +1,12 @@
 {
   "tool_id": "krbrelayup",
-  "repo_url": "https://github.com/Dec0ne/KrbRelayUp",
+  "repo_url": "https://github.com/dec0ne/krbrelayup",
   "project_path": "KrbRelayUp.sln",
   "configuration": "Release",
   "target_framework": "",
   "version_strategy": "tag_then_commit",
-  "restore_mode": "auto",
-  "build_mode": "auto",
+  "restore_mode": "legacy_nuget_strict",
+  "build_mode": "solution_default_output",
   "asset_include": null,
   "asset_exclude": null
 }

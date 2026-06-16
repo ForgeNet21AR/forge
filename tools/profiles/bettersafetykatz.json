@@ -1,12 +1,12 @@
 {
   "tool_id": "bettersafetykatz",
-  "repo_url": "https://github.com/Flangvik/BetterSafetyKatz",
+  "repo_url": "https://github.com/flangvik/bettersafetykatz",
   "project_path": "BetterSafetyKatz.sln",
   "configuration": "Release",
   "target_framework": "",
   "version_strategy": "tag_then_commit",
-  "restore_mode": "auto",
-  "build_mode": "auto",
+  "restore_mode": "legacy_nuget_strict",
+  "build_mode": "solution_default_output",
   "asset_include": null,
   "asset_exclude": null
 }

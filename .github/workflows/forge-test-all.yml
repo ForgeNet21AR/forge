@@ -39,15 +39,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
+
     uses: ./.github/workflows/forge-build.yml
+
     with:
-      mode: simple
       tool_id: ${{ matrix.tool_id }}
       repo_url: ${{ matrix.repo_url }}
       git_ref: ${{ matrix.git_ref }}
       project_path: ${{ matrix.project_path }}
       configuration: ${{ matrix.configuration }}
       target_framework: ${{ matrix.target_framework }}
+      version_override: ${{ matrix.version_override }}
       asset_include: ${{ matrix.asset_include }}
       asset_exclude: ${{ matrix.asset_exclude }}
+      build_type: ${{ matrix.build_type }}
       force_rebuild: ${{ inputs.force_rebuild }}

@@ -1,6 +1,6 @@
 {
   "tool_id": "sharpkatz",
-  "repo_url": "https://github.com/b4rtik/SharpKatz",
+  "repo_url": "https://github.com/b4rtik/sharpkatz",
   "project_path": "SharpKatz.sln",
   "configuration": "Release",
   "target_framework": "",

@@ -25,14 +25,6 @@ const catalogPreview = catalog
         </svg>
         <span>Builds are cached. If a release exists, your build is skipped.</span>
       </div>
-      <div class="warning-banner" style="margin-top: 0.75rem;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-          <line x1="12" y1="9" x2="12" y2="13"></line>
-          <line x1="12" y1="17" x2="12.01" y2="17"></line>
-        </svg>
-        <span>20 builds per hour per IP.</span>
-      </div>
     </section>
     <aside class="panel stats">
       <div class="stat">
@@ -41,7 +33,7 @@ const catalogPreview = catalog
       </div>
       <div class="stat">
         <strong>Open</strong>
-        <span class="muted">Anyone can trigger builds. Use responsibly.</span>
+        <span class="muted">Anyone can trigger builds.</span>
       </div>
       <div class="stat">
         <strong>GitHub</strong>
@@ -73,7 +65,7 @@ const catalogPreview = catalog
 
         <div id="build-panel" style="display:none">
           <div class="subpanel">
-            <div class="note">Checks GitHub and loads Forge profile if available.</div>
+            <div class="note">Select a tag, branch, or commit to build.</div>
             <div class="field">
               <label for="source-ref">Source ref</label>
               <input id="source-ref" placeholder="Tag, branch, or commit" />
@@ -90,7 +82,7 @@ const catalogPreview = catalog
               <input id="advanced-toggle" type="checkbox" />
               <span>
                 <strong>Advanced settings</strong>
-                <small>Project path, framework, asset filters, and mode overrides.</small>
+                <small>Project path, configuration, and framework overrides.</small>
               </span>
             </label>
             <label class="toggle-card" for="force-rebuild">
@@ -116,21 +108,6 @@ const catalogPreview = catalog
             <div class="field">
               <label for="framework">Target framework</label>
               <input id="framework" placeholder="net462" />
-            </div>
-
-            <div class="field">
-              <label for="version-label">Custom release label</label>
-              <input id="version-label" placeholder="Leave empty unless you need a custom label" />
-            </div>
-
-            <div class="field">
-              <label for="asset-include">Asset include filter</label>
-              <input id="asset-include" placeholder="exe,dll" />
-            </div>
-
-            <div class="field">
-              <label for="asset-exclude">Asset exclude filter</label>
-              <input id="asset-exclude" placeholder="resources.dll" />
             </div>
           </div>
 
@@ -160,7 +137,7 @@ const catalogPreview = catalog
         <h2 id="catalog-count" class="section-title">{catalogPreview.length} tools</h2>
       </div>
       <div class="toolbar-right">
-        <input id="catalog-search" placeholder="Search..." />
+        <input id="catalog-search" placeholder="Search tools..." />
       </div>
     </div>
     <div id="catalog-grid" class="catalog-grid">
@@ -184,7 +161,12 @@ const catalogPreview = catalog
   </section>
 
   <script>
-    const state = {
+    const state: {
+      repoUrl: string;
+      toolId: string;
+      refs: Array<{ name: string; kind: string }>;
+      profile: Record<string, unknown> | null;
+    } = {
       repoUrl: "",
       toolId: "",
       refs: [],
@@ -219,23 +201,67 @@ const catalogPreview = catalog
       if (element && typeof value === "string") element.value = value;
     }
 
-    function renderInspector(data: { tool_id: string; repo_url: string; default_branch: string; refs?: Array<{ name: string; kind: string }>; profile: Record<string, unknown> | null; catalog_match: { tool_id: string; enabled: boolean } | null }) {
+    function getInitial(name: string): string {
+      return name.charAt(0).toUpperCase();
+    }
+
+    function renderInspector(data: {
+      tool_id: string;
+      repo_url: string;
+      default_branch: string;
+      refs?: Array<{ name: string; kind: string }>;
+      profile: Record<string, unknown> | null;
+      catalog_match: { tool_id: string; enabled: boolean } | null;
+    }) {
       const profile = data.profile;
       const catalog = data.catalog_match;
+      const tagCount = (data.refs ?? []).filter((r) => r.kind === "tag").length;
+      const branchCount = (data.refs ?? []).filter((r) => r.kind === "branch").length;
+      const repoShort = data.repo_url.replace("https://github.com/", "");
+
       inspector.innerHTML = `
-        <div class="log-card">
-          <div class="split">
-            <div>
-              <strong>${data.tool_id}</strong>
-              <div class="muted">${data.repo_url}</div>
+        <div class="inspector-card">
+          <div class="inspector-header">
+            <div class="inspector-icon">${getInitial(data.tool_id)}</div>
+            <div class="inspector-titles">
+              <strong class="inspector-name">${data.tool_id}</strong>
+              <span class="inspector-repo">${repoShort}</span>
             </div>
-            <span class="status">${catalog ? "cataloged" : "ad hoc"}</span>
+            <span class="status ${catalog?.enabled ? "success" : ""}">${catalog?.enabled ? "cataloged" : "ad hoc"}</span>
           </div>
-          <div class="detail-list">
-            <div><span class="muted">Default branch</span><strong>${data.default_branch}</strong></div>
-            <div><span class="muted">Known profile</span><strong>${profile ? "loaded" : "none"}</strong></div>
-            <div><span class="muted">Refs found</span><strong>${data.refs?.length ?? 0}</strong></div>
+          <div class="inspector-grid">
+            <div class="inspector-stat">
+              <span class="inspector-stat-value">${tagCount}</span>
+              <span class="inspector-stat-label">tags</span>
+            </div>
+            <div class="inspector-stat">
+              <span class="inspector-stat-value">${branchCount}</span>
+              <span class="inspector-stat-label">branches</span>
+            </div>
+            <div class="inspector-stat">
+              <span class="inspector-stat-value">${data.default_branch}</span>
+              <span class="inspector-stat-label">default</span>
+            </div>
+            <div class="inspector-stat">
+              <span class="inspector-stat-value">${profile ? "yes" : "no"}</span>
+              <span class="inspector-stat-label">profile</span>
+            </div>
           </div>
+          ${
+            profile
+              ? `
+            <div class="inspector-details">
+              <div class="inspector-detail-label">Profile settings</div>
+              <div class="inspector-detail-list">
+                ${profile.project_path ? `<div><span>Project</span><strong>${profile.project_path}</strong></div>` : ""}
+                ${profile.configuration ? `<div><span>Config</span><strong>${profile.configuration}</strong></div>` : ""}
+                ${profile.target_framework ? `<div><span>Framework</span><strong>${profile.target_framework}</strong></div>` : ""}
+                ${profile.restore_mode ? `<div><span>Restore</span><strong>${profile.restore_mode}</strong></div>` : ""}
+                ${profile.build_mode ? `<div><span>Build</span><strong>${profile.build_mode}</strong></div>` : ""}
+              </div>
+            </div>`
+              : ""
+          }
         </div>
       `;
     }
@@ -260,13 +286,18 @@ const catalogPreview = catalog
         inspectStatus.className = "message-error";
         return;
       }
-      
+
       const originalText = "Inspect";
       setButtonLoading(inspectButton, true, originalText);
-      
+
       inspectStatus.textContent = "Inspecting…";
       inspectStatus.className = "muted";
-      
+
+      const advancedLabel = document.querySelector('label[for="advanced-toggle"] strong');
+      if (advancedLabel) {
+        advancedLabel.innerHTML = 'Advanced settings';
+      }
+
       try {
         const response = await fetch("/api/repo/inspect", {
           method: "POST",
@@ -299,26 +330,19 @@ const catalogPreview = catalog
         fillField("project-path", data.profile?.project_path ?? "");
         fillField("configuration", data.profile?.configuration ?? "Release");
         fillField("framework", data.profile?.target_framework ?? "");
-        fillField("asset-include", (data.profile?.asset_include ?? []).join(","));
-        fillField("asset-exclude", (data.profile?.asset_exclude ?? []).join(","));
-        
+
         const shouldOpenAdvanced = Boolean(
           data.profile?.project_path ||
           data.profile?.target_framework ||
-          (data.profile?.asset_include ?? []).length ||
-          (data.profile?.asset_exclude ?? []).length ||
           (data.profile?.restore_mode && data.profile.restore_mode !== "auto") ||
           (data.profile?.build_mode && data.profile.build_mode !== "auto"),
         );
-        
+
         advancedToggle.checked = false;
         advancedPanel?.classList.remove("is-open");
-        
-        if (shouldOpenAdvanced) {
-          const advancedLabel = document.querySelector('label[for="advanced-toggle"] strong');
-          if (advancedLabel) {
-            advancedLabel.innerHTML = 'Advanced settings <span style="color: var(--accent-2); font-size: 0.8em;">● profile loaded</span>';
-          }
+
+        if (shouldOpenAdvanced && advancedLabel) {
+          advancedLabel.innerHTML = 'Advanced settings <span style="color: var(--accent-2); font-size: 0.8em;">● profile loaded</span>';
         }
       } catch (error) {
         inspectStatus.textContent = "Repository inspection failed";
@@ -330,20 +354,16 @@ const catalogPreview = catalog
 
     const buildButton = document.querySelector("#build-button") as HTMLButtonElement;
     const buildOriginalText = "Build";
-    
+
     buildButton?.addEventListener("click", async () => {
       setButtonLoading(buildButton, true, buildOriginalText);
-      
+
       const payload = {
         repo_url: state.repoUrl || repoUrlInput.value,
-        mode: advancedToggle.checked ? "advanced" : "simple",
         git_ref: (document.querySelector("#source-ref") as HTMLInputElement).value.trim(),
         project_path: (document.querySelector("#project-path") as HTMLInputElement).value.trim(),
         configuration: (document.querySelector("#configuration") as HTMLInputElement).value.trim(),
         target_framework: (document.querySelector("#framework") as HTMLInputElement).value.trim(),
-        version_override: (document.querySelector("#version-label") as HTMLInputElement).value.trim(),
-        asset_include: (document.querySelector("#asset-include") as HTMLInputElement).value.trim(),
-        asset_exclude: (document.querySelector("#asset-exclude") as HTMLInputElement).value.trim(),
         force_rebuild: (document.querySelector("#force-rebuild") as HTMLInputElement).checked,
       };
 
@@ -390,7 +410,7 @@ const catalogPreview = catalog
     });
 
     const urlParams = new URLSearchParams(window.location.search);
-    const repoParam = urlParams.get('repo');
+    const repoParam = urlParams.get("repo");
     if (repoParam) {
       repoUrlInput.value = repoParam;
       repoUrlInput.focus();
@@ -399,11 +419,11 @@ const catalogPreview = catalog
     const catalogSearch = document.querySelector("#catalog-search") as HTMLInputElement;
     const catalogGrid = document.querySelector("#catalog-grid") as HTMLElement;
     const catalogCards = catalogGrid?.querySelectorAll(".catalog-card");
-    
+
     catalogSearch?.addEventListener("input", (e) => {
       const searchTerm = (e.target as HTMLInputElement).value.toLowerCase();
       let visibleCount = 0;
-      
+
       catalogCards?.forEach((card) => {
         const c = card as HTMLElement;
         const searchText = c.dataset.searchText || "";
@@ -414,7 +434,7 @@ const catalogPreview = catalog
           c.style.display = "none";
         }
       });
-      
+
       const countElement = document.querySelector("#catalog-count");
       if (countElement) {
         countElement.textContent = `${visibleCount} tools`;
