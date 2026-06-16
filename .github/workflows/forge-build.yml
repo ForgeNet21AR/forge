@@ -886,6 +886,7 @@ jobs:
           if ($projectPath.StartsWith($targetRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
             $projectPath = $projectPath.Substring($targetRoot.Length)
           }
+          $projectPath = $projectPath -replace '\\', '/'
 
           $profile = [ordered]@{
             tool_id = "${{ needs.preflight.outputs.tool_id }}"
