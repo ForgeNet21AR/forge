@@ -738,6 +738,7 @@ jobs:
             "*vshost*",
             "*testhost*",
             "*.resources.dll",
+            "*.json",
             "Microsoft.*",
             "MSBuild*"
           )

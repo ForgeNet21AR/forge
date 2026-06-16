@@ -1,6 +1,6 @@
 {
   "tool_id": "snaffler",
-  "repo_url": "https://github.com/SnaffCon/Snaffler",
+  "repo_url": "https://github.com/snaffcon/snaffler",
   "project_path": "Snaffler.sln",
   "configuration": "Release",
   "target_framework": "",
@@ -10,4 +10,3 @@
   "asset_include": null,
   "asset_exclude": null
 }
-

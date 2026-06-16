@@ -1,6 +1,6 @@
 {
   "tool_id": "sharphound",
-  "repo_url": "https://github.com/SpecterOps/SharpHound",
+  "repo_url": "https://github.com/specterops/sharphound",
   "project_path": "Sharphound.sln",
   "configuration": "Release",
   "target_framework": "",
@@ -10,4 +10,3 @@
   "asset_include": null,
   "asset_exclude": null
 }
-

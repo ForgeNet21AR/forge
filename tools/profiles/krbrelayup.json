@@ -1,6 +1,6 @@
 {
   "tool_id": "krbrelayup",
-  "repo_url": "https://github.com/Dec0ne/KrbRelayUp",
+  "repo_url": "https://github.com/dec0ne/krbrelayup",
   "project_path": "KrbRelayUp.sln",
   "configuration": "Release",
   "target_framework": "",
@@ -10,4 +10,3 @@
   "asset_include": null,
   "asset_exclude": null
 }
-

@@ -1,6 +1,6 @@
 {
   "tool_id": "sharpdpapi",
-  "repo_url": "https://github.com/GhostPack/SharpDPAPI",
+  "repo_url": "https://github.com/ghostpack/sharpdpapi",
   "project_path": "SharpDPAPI.sln",
   "configuration": "Release",
   "target_framework": "",
@@ -10,4 +10,3 @@
   "asset_include": null,
   "asset_exclude": null
 }
-

@@ -1,6 +1,6 @@
 {
   "tool_id": "godpotato",
-  "repo_url": "https://github.com/BeichenDream/GodPotato",
+  "repo_url": "https://github.com/beichendream/godpotato",
   "project_path": "GodPotato.csproj",
   "configuration": "Release",
   "target_framework": "",
@@ -10,4 +10,3 @@
   "asset_include": null,
   "asset_exclude": null
 }
-

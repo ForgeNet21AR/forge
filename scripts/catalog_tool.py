@@ -159,7 +159,7 @@ def normalize_repo_url(repo_url: str) -> str:
     if repo_url.startswith("http://"):
         repo_url = "https://" + repo_url[len("http://") :]
 
-    return repo_url
+    return repo_url.lower()
 
 
 def github_slug(repo_url: str) -> str:

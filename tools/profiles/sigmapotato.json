@@ -1,6 +1,6 @@
 {
   "tool_id": "sigmapotato",
-  "repo_url": "https://github.com/tylerdotrar/SigmaPotato",
+  "repo_url": "https://github.com/tylerdotrar/sigmapotato",
   "project_path": "SigmaPotato.csproj",
   "configuration": "Release",
   "target_framework": "",
@@ -10,4 +10,3 @@
   "asset_include": null,
   "asset_exclude": null
 }
-

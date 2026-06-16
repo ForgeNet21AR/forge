@@ -1,6 +1,6 @@
 {
   "tool_id": "sharpexec",
-  "repo_url": "https://github.com/anthemtotheego/SharpExec",
+  "repo_url": "https://github.com/anthemtotheego/sharpexec",
   "project_path": "SharpExec.sln",
   "configuration": "Release",
   "target_framework": "",
@@ -10,4 +10,3 @@
   "asset_include": null,
   "asset_exclude": null
 }
-

@@ -1,6 +1,6 @@
 {
   "tool_id": "sharpmad",
-  "repo_url": "https://github.com/Kevin-Robertson/Sharpmad",
+  "repo_url": "https://github.com/kevin-robertson/sharpmad",
   "project_path": "Sharpmad.sln",
   "configuration": "Release",
   "target_framework": "",
@@ -10,4 +10,3 @@
   "asset_include": null,
   "asset_exclude": null
 }
-

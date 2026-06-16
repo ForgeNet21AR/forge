@@ -1,6 +1,6 @@
 {
   "tool_id": "sharpchromium",
-  "repo_url": "https://github.com/djhohnstein/SharpChromium",
+  "repo_url": "https://github.com/djhohnstein/sharpchromium",
   "project_path": "SharpChromium.sln",
   "configuration": "Release",
   "target_framework": "",
@@ -10,4 +10,3 @@
   "asset_include": null,
   "asset_exclude": null
 }
-

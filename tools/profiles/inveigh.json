@@ -1,6 +1,6 @@
 {
   "tool_id": "inveigh",
-  "repo_url": "https://github.com/Kevin-Robertson/Inveigh",
+  "repo_url": "https://github.com/kevin-robertson/inveigh",
   "project_path": "Inveigh.sln",
   "configuration": "Release",
   "target_framework": "",
@@ -10,4 +10,3 @@
   "asset_include": null,
   "asset_exclude": null
 }
-

@@ -1,6 +1,6 @@
 {
   "tool_id": "adsearch",
-  "repo_url": "https://github.com/tomcarver16/ADSearch",
+  "repo_url": "https://github.com/tomcarver16/adsearch",
   "project_path": "ADSearch.sln",
   "configuration": "Release",
   "target_framework": "",
@@ -10,4 +10,3 @@
   "asset_include": null,
   "asset_exclude": null
 }
-

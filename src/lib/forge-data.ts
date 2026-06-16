@@ -72,7 +72,7 @@ export const profiles: Record<string, ForgeProfile> = Object.fromEntries(
 );
 
 export function normalizeRepoUrl(repoUrl: string): string {
-  let normalized = repoUrl.trim();
+  let normalized = repoUrl.trim().toLowerCase();
   if (!normalized) return "";
   normalized = normalized.replace(/^http:\/\//i, "https://");
   normalized = normalized.replace(/\.git$/i, "");

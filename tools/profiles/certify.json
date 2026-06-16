@@ -1,6 +1,6 @@
 {
   "tool_id": "certify",
-  "repo_url": "https://github.com/GhostPack/Certify",
+  "repo_url": "https://github.com/ghostpack/certify",
   "project_path": "Certify.sln",
   "configuration": "Release",
   "target_framework": "",
@@ -10,4 +10,3 @@
   "asset_include": null,
   "asset_exclude": null
 }
-

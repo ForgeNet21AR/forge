@@ -1,6 +1,6 @@
 {
   "tool_id": "sharpsuccessor",
-  "repo_url": "https://github.com/logangoins/SharpSuccessor",
+  "repo_url": "https://github.com/logangoins/sharpsuccessor",
   "project_path": "SharpSuccessor.sln",
   "configuration": "Release",
   "target_framework": "",
@@ -10,4 +10,3 @@
   "asset_include": null,
   "asset_exclude": null
 }
-

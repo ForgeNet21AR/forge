@@ -1,6 +1,6 @@
 {
   "tool_id": "sharpview",
-  "repo_url": "https://github.com/tevora-threat/SharpView",
+  "repo_url": "https://github.com/tevora-threat/sharpview",
   "project_path": "SharpView.sln",
   "configuration": "Release",
   "target_framework": "",
@@ -10,4 +10,3 @@
   "asset_include": null,
   "asset_exclude": null
 }
-

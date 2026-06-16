@@ -1,6 +1,6 @@
 {
   "tool_id": "bettersafetykatz",
-  "repo_url": "https://github.com/Flangvik/BetterSafetyKatz",
+  "repo_url": "https://github.com/flangvik/bettersafetykatz",
   "project_path": "BetterSafetyKatz.sln",
   "configuration": "Release",
   "target_framework": "",
@@ -10,4 +10,3 @@
   "asset_include": null,
   "asset_exclude": null
 }
-

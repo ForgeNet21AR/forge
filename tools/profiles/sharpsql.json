@@ -1,6 +1,6 @@
 {
   "tool_id": "sharpsql",
-  "repo_url": "https://github.com/mlcsec/SharpSQL",
+  "repo_url": "https://github.com/mlcsec/sharpsql",
   "project_path": "SharpSQL\\SharpSQL.sln",
   "configuration": "Release",
   "target_framework": "",
@@ -10,4 +10,3 @@
   "asset_include": null,
   "asset_exclude": null
 }
-

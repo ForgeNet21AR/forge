@@ -1,6 +1,6 @@
 {
   "tool_id": "sharpgpo",
-  "repo_url": "https://github.com/Dliv3/SharpGPO",
+  "repo_url": "https://github.com/dliv3/sharpgpo",
   "project_path": "SharpGPO.sln",
   "configuration": "Release",
   "target_framework": "",
@@ -10,4 +10,3 @@
   "asset_include": null,
   "asset_exclude": null
 }
-

@@ -1,6 +1,6 @@
 {
   "tool_id": "krbrelay",
-  "repo_url": "https://github.com/cube0x0/KrbRelay",
+  "repo_url": "https://github.com/cube0x0/krbrelay",
   "project_path": "KrbRelay.sln",
   "configuration": "Release",
   "target_framework": "",
@@ -10,4 +10,3 @@
   "asset_include": null,
   "asset_exclude": null
 }
-

@@ -1,6 +1,6 @@
 {
   "tool_id": "group3r",
-  "repo_url": "https://github.com/Group3r/Group3r",
+  "repo_url": "https://github.com/group3r/group3r",
   "project_path": "Group3r.sln",
   "configuration": "Release",
   "target_framework": "",
@@ -10,4 +10,3 @@
   "asset_include": null,
   "asset_exclude": null
 }
-
