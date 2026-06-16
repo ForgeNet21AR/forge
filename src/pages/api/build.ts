@@ -3,61 +3,7 @@ import { dispatchBuild } from "../../lib/github";
 
 export const prerender = false;
 
-const RATE_LIMIT = 20;
-const RATE_WINDOW_MS = 60 * 60 * 1000; // 1 hour
-
-const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
-
-function cleanExpiredEntries() {
-  const now = Date.now();
-  for (const [key, value] of rateLimitStore.entries()) {
-    if (value.resetAt < now) {
-      rateLimitStore.delete(key);
-    }
-  }
-}
-
-function checkRateLimit(ip: string): boolean {
-  cleanExpiredEntries();
-  
-  const now = Date.now();
-  const record = rateLimitStore.get(ip);
-  
-  if (!record || record.resetAt < now) {
-    rateLimitStore.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
-    return true;
-  }
-  
-  if (record.count >= RATE_LIMIT) {
-    return false;
-  }
-  
-  record.count++;
-  return true;
-}
-
-function getClientIP(context: APIContext): string {
-  const cf = context.locals.cloudflare as { env?: { CF_IP?: string } } | undefined;
-  const forwarded = context.request.headers.get("x-forwarded-for");
-  const realIP = context.request.headers.get("x-real-ip");
-  
-  if (cf?.env?.CF_IP) return cf.env.CF_IP;
-  if (forwarded) return forwarded.split(",")[0].trim();
-  if (realIP) return realIP;
-  
-  return "unknown";
-}
-
 export async function POST(context: APIContext) {
-  const clientIP = getClientIP(context);
-  
-  if (!checkRateLimit(clientIP)) {
-    return Response.json(
-      { error: "Rate limit exceeded. 20 builds per hour per IP. Try again later." },
-      { status: 429, headers: { "Retry-After": "3600" } },
-    );
-  }
-
   try {
     const body = (await context.request.json()) as Record<string, string | boolean>;
     const inputs = {

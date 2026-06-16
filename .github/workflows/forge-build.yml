@@ -915,8 +915,11 @@ jobs:
             git fetch origin "$branch"
             if ($LASTEXITCODE -ne 0) { continue }
 
-            git reset --hard "origin/$branch"
-            if ($LASTEXITCODE -ne 0) { continue }
+            git rebase "origin/$branch"
+            if ($LASTEXITCODE -ne 0) {
+              git rebase --abort
+              continue
+            }
 
             Set-Content -Path $profileFile -Value $profileContent -Encoding UTF8
             git add $profileFile

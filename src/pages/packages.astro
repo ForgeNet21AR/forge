@@ -82,7 +82,7 @@ export const prerender = false;
     }
 
     function showModal(toolId: string, releases: Release[]) {
-      modalTitle.textContent = toolId;
+      modalTitle.textContent = `${toolId} (${releases.length} release${releases.length !== 1 ? "s" : ""})`;
       modalBody.innerHTML = releases.map((r) => `
         <div class="release-version">
           <div class="release-version-tag">${r.name ?? r.tag}</div>
@@ -205,9 +205,19 @@ export const prerender = false;
       loadResults();
     });
 
+    let suggestionIndex = -1;
+
+    function selectSuggestion(tool: string) {
+      searchInput.value = tool;
+      suggestionsBox.style.display = "none";
+      suggestionIndex = -1;
+      renderReleases(allReleases, tool);
+    }
+
     searchInput?.addEventListener("input", () => {
       renderReleases(allReleases, searchInput.value);
       showSuggestions(searchInput.value);
+      suggestionIndex = -1;
     });
 
     searchInput?.addEventListener("focus", () => showSuggestions(searchInput.value));
@@ -216,14 +226,38 @@ export const prerender = false;
       setTimeout(() => { suggestionsBox.style.display = "none"; }, 150);
     });
 
+    searchInput?.addEventListener("keydown", (e) => {
+      const items = suggestionsBox.querySelectorAll(".suggestion-item");
+      if (!items.length) return;
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        items[suggestionIndex]?.classList.remove("active");
+        suggestionIndex = Math.min(suggestionIndex + 1, items.length - 1);
+        items[suggestionIndex]?.classList.add("active");
+        items[suggestionIndex]?.scrollIntoView({ block: "nearest" });
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        items[suggestionIndex]?.classList.remove("active");
+        suggestionIndex = Math.max(suggestionIndex - 1, 0);
+        items[suggestionIndex]?.classList.add("active");
+        items[suggestionIndex]?.scrollIntoView({ block: "nearest" });
+      } else if (e.key === "Enter" && suggestionIndex >= 0) {
+        e.preventDefault();
+        const tool = items[suggestionIndex]?.getAttribute("data-tool");
+        if (tool) selectSuggestion(tool);
+      } else if (e.key === "Escape") {
+        suggestionsBox.style.display = "none";
+        suggestionIndex = -1;
+      }
+    });
+
     suggestionsBox?.addEventListener("click", (e) => {
       const item = (e.target as HTMLElement).closest(".suggestion-item") as HTMLElement | null;
       if (!item) return;
       const tool = item.dataset.tool;
       if (!tool) return;
-      searchInput.value = tool;
-      suggestionsBox.style.display = "none";
-      renderReleases(allReleases, tool);
+      selectSuggestion(tool);
     });
 
     loadResults();

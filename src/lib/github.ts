@@ -32,7 +32,7 @@ function getToken(context: APIContext): string {
   return getRequiredEnv(context, "FORGE_GITHUB_TOKEN");
 }
 
-async function githubRequest<T>(
+export async function githubRequest<T>(
   context: APIContext,
   path: string,
   init: RequestInit = {},

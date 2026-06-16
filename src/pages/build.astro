@@ -293,6 +293,11 @@ const catalogPreview = catalog
       inspectStatus.textContent = "Inspecting…";
       inspectStatus.className = "muted";
 
+      const advancedLabel = document.querySelector('label[for="advanced-toggle"] strong');
+      if (advancedLabel) {
+        advancedLabel.innerHTML = 'Advanced settings';
+      }
+
       try {
         const response = await fetch("/api/repo/inspect", {
           method: "POST",
@@ -336,11 +341,8 @@ const catalogPreview = catalog
         advancedToggle.checked = false;
         advancedPanel?.classList.remove("is-open");
 
-        if (shouldOpenAdvanced) {
-          const advancedLabel = document.querySelector('label[for="advanced-toggle"] strong');
-          if (advancedLabel) {
-            advancedLabel.innerHTML = 'Advanced settings <span style="color: var(--accent-2); font-size: 0.8em;">● profile loaded</span>';
-          }
+        if (shouldOpenAdvanced && advancedLabel) {
+          advancedLabel.innerHTML = 'Advanced settings <span style="color: var(--accent-2); font-size: 0.8em;">● profile loaded</span>';
         }
       } catch (error) {
         inspectStatus.textContent = "Repository inspection failed";
