@@ -796,10 +796,14 @@ textarea {
 }
 
 .release-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
-  align-items: start;
+}
+
+.release-grid > * {
+  flex: 1 1 280px;
+  min-width: 250px;
 }
 
 .release-card {
