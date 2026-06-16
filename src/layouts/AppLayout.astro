@@ -73,6 +73,7 @@ const url = Astro.url.href;
             <span class="nav-indicator"></span>
             <a href="/packages" class={pathname === "/packages" || pathname === "/" ? "active" : ""}>Packages</a>
             <a href="/build" class={pathname.startsWith("/build") ? "active" : ""}>Build</a>
+            <a href="/inventory" class={pathname.startsWith("/inventory") ? "active" : ""}>Inventory</a>
             <a href="/runs" class={pathname.startsWith("/runs") ? "active" : ""}>Runs</a>
           </nav>
         </div>

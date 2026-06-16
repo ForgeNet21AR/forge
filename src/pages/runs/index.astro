@@ -8,13 +8,13 @@ export const prerender = false;
   <section class="hero">
     <section class="panel">
       <p class="kicker">Runs</p>
-      <h1>Find a build.</h1>
-      <p>Enter a run ID or pick from recent builds saved locally.</p>
+      <h1>Build runs.</h1>
+      <p>Look up a run by ID or pick from recent builds.</p>
     </section>
     <aside class="panel">
       <div class="field">
         <label for="run-id">Run ID</label>
-        <input id="run-id" placeholder="123456789" />
+        <input id="run-id" placeholder="e.g. 123456789" />
       </div>
       <div class="inline-actions" style="margin-top: 1rem;">
         <button id="open-run" type="button">Open run</button>
@@ -25,9 +25,9 @@ export const prerender = false;
   <section class="panel">
     <div class="toolbar">
       <h2 class="section-title">Recent runs</h2>
-      <span class="muted">Saved locally after a build.</span>
+      <span class="muted">Saved locally after each build.</span>
     </div>
-    <div id="recent-runs" class="empty">No recent runs saved yet.</div>
+    <div id="recent-runs" class="empty">No recent runs yet.</div>
   </section>
 
   <script>
@@ -37,14 +37,15 @@ export const prerender = false;
     if (recentRuns.length && recentContainer) {
       recentContainer.innerHTML = `<div class="release-grid">${recentRuns
         .map((runId: string) => `
-          <div class="release-card">
+          <a class="release-card" href="/runs/${runId}" style="text-decoration: none;">
             <div class="release-card-top">
               <strong class="release-tool">Run #${runId}</strong>
-              <a class="button secondary" href="/runs/${runId}" style="padding: 0.35rem 0.7rem; font-size: 0.85rem;">View</a>
+              <span class="status pending">active</span>
             </div>
-            <div class="release-tag">Track build status and steps</div>
-          </div>
+            <div class="release-tag" style="margin-top: 0.25rem;">Click to view details</div>
+          </a>
         `)
+        .reverse()
         .join("")}</div>`;
     }
 
