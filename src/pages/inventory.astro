@@ -1,16 +1,16 @@
 ---
 import AppLayout from "../layouts/AppLayout.astro";
-import { catalog, profiles } from "../lib/forge-data";
+import { catalog } from "../lib/forge-data";
 
 export const prerender = false;
 ---
 
-<AppLayout title="forge - Inventory" description="Browse all cataloged tools and their build configuration.">
+<AppLayout title="forge - Inventory" description="Browse all cataloged tools in the forge.">
   <section class="hero">
     <section class="panel">
       <p class="kicker">Inventory</p>
       <h1>Tool catalog.</h1>
-      <p>Every tool in the forge catalog, with build settings and status.</p>
+      <p>All tools available to build in the forge.</p>
     </section>
     <aside class="panel stats">
       <div class="stat">
@@ -31,31 +31,15 @@ export const prerender = false;
     </div>
     <div id="inventory-list">
       <div class="release-grid" id="inventory-grid">
-        {catalog.map((entry) => {
-          const profile = profiles[entry.id];
-          return <div class="release-card">
+        {catalog.map((entry) => (
+          <a class="release-card" href={entry.repo_url} target="_blank" rel="noreferrer" style="text-decoration: none;">
             <div class="release-card-top">
               <strong class="release-tool">{entry.id}</strong>
               <span class="status {entry.enabled ? "success" : "fail"}">{entry.enabled ? "enabled" : "disabled"}</span>
             </div>
-            <div class="release-versions" style="gap: 0.3rem;">
-              <div class="release-version">
-                <div class="release-version-tag" style="font-size: 0.8rem;">repo</div>
-                <a class="release-asset-link" href={entry.repo_url} target="_blank" rel="noreferrer">{entry.repo_url}</a>
-              </div>
-              {(entry.project_path || profile?.project_path) ? <div class="release-version">
-                <div class="release-version-tag" style="font-size: 0.8rem;">project</div>
-                <span class="release-asset-name">{entry.project_path || profile?.project_path}</span>
-              </div> : null}
-              <div class="release-version" style="display: flex; gap: 1rem; flex-wrap: wrap;">
-                <span><span class="release-version-tag">config</span> {entry.default_configuration || "Release"}</span>
-                {entry.default_framework ? <span><span class="release-version-tag">framework</span> {entry.default_framework}</span> : null}
-                <span><span class="release-version-tag">strategy</span> {entry.version_strategy}</span>
-                {profile ? <span class="status success" style="font-size: 0.78rem;">has profile</span> : null}
-              </div>
-            </div>
-          </div>;
-        })}
+            <div class="release-tag" style="overflow-wrap: break-word;">{entry.repo_url}</div>
+          </a>
+        ))}
       </div>
     </div>
   </section>

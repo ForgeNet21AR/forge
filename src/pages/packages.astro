@@ -34,6 +34,16 @@ export const prerender = false;
     <div id="results-list" class="empty">Load releases to see available packages.</div>
   </section>
 
+  <div id="release-modal" class="modal-overlay" style="display:none">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modal-title"></h2>
+        <button id="modal-close" class="modal-close">&times;</button>
+      </div>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
   <script>
     interface ReleaseAsset {
       name: string;
@@ -53,6 +63,10 @@ export const prerender = false;
     const searchInput = document.getElementById("packages-search") as HTMLInputElement;
     const suggestionsBox = document.getElementById("search-suggestions") as HTMLElement;
     const releaseCount = document.getElementById("release-count") as HTMLElement;
+    const modal = document.getElementById("release-modal") as HTMLElement;
+    const modalTitle = document.getElementById("modal-title") as HTMLElement;
+    const modalBody = document.getElementById("modal-body") as HTMLElement;
+    const modalClose = document.getElementById("modal-close") as HTMLElement;
     let toolIds: string[] = [];
 
     function extractToolId(tag: string): string {
@@ -67,21 +81,35 @@ export const prerender = false;
       return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
     }
 
-    function renderVersion(release: Release): string {
-      return `
+    function showModal(toolId: string, releases: Release[]) {
+      modalTitle.textContent = toolId;
+      modalBody.innerHTML = releases.map((r) => `
         <div class="release-version">
-          <div class="release-version-tag">${release.name ?? release.tag}</div>
+          <div class="release-version-tag">${r.name ?? r.tag}</div>
           <div class="release-version-assets">
-            ${release.assets.map((asset) => `
-              <a class="release-asset-link" href="/api/releases/asset?tag=${encodeURIComponent(release.tag)}&name=${encodeURIComponent(asset.name)}">
-                <span class="release-asset-name">${asset.name}</span>
-                <span class="asset-size">${formatSize(asset.size)}</span>
+            ${r.assets.map((a) => `
+              <a class="release-asset-link" href="/api/releases/asset?tag=${encodeURIComponent(r.tag)}&name=${encodeURIComponent(a.name)}">
+                <span class="release-asset-name">${a.name}</span>
+                <span class="asset-size">${formatSize(a.size)}</span>
               </a>
             `).join("")}
           </div>
         </div>
-      `;
+      `).join("");
+      modal.style.display = "";
     }
+
+    function closeModal() {
+      modal.style.display = "none";
+    }
+
+    modalClose?.addEventListener("click", closeModal);
+    modal?.addEventListener("click", (e) => {
+      if (e.target === modal) closeModal();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeModal();
+    });
 
     function showSuggestions(query: string) {
       const q = query.toLowerCase();
@@ -133,26 +161,21 @@ export const prerender = false;
         groups[id].push(r);
       });
 
-      resultsList.innerHTML = `<div class="release-grid">${Object.entries(groups).map(([toolId, toolReleases]) => {
-        const visible = toolReleases.slice(0, 3);
-        const hidden = toolReleases.slice(3);
-        return `
-        <div class="release-card">
+      resultsList.innerHTML = `<div class="release-grid">${Object.entries(groups).map(([toolId, toolReleases]) => `
+        <div class="release-card" data-tool="${toolId}" role="button" tabindex="0">
           <div class="release-card-top">
             <strong class="release-tool">${toolId}</strong>
             <span class="status success">${toolReleases.length} release${toolReleases.length !== 1 ? "s" : ""}</span>
           </div>
-          <div class="release-versions" data-card="${toolId}">
-            ${visible.map(renderVersion).join("")}
-            ${hidden.length ? `
-              <div class="release-version release-hidden" style="display:none">
-                ${hidden.map(renderVersion).join("")}
-              </div>
-              <button class="release-show-more" type="button" data-card="${toolId}">Show ${hidden.length} more</button>
-            ` : ""}
-          </div>
         </div>
-      `}).join("")}</div>`;
+      `).join("")}</div>`;
+
+      resultsList.querySelectorAll(".release-card").forEach((card) => {
+        const toolId = (card as HTMLElement).dataset.tool;
+        if (!toolId) return;
+        const toolReleases = groups[toolId];
+        card.addEventListener("click", () => showModal(toolId, toolReleases));
+      });
     }
 
     async function loadResults() {
@@ -201,20 +224,6 @@ export const prerender = false;
       searchInput.value = tool;
       suggestionsBox.style.display = "none";
       renderReleases(allReleases, tool);
-    });
-
-    resultsList.addEventListener("click", (e) => {
-      const btn = (e.target as HTMLElement).closest(".release-show-more") as HTMLButtonElement | null;
-      if (!btn) return;
-      const card = btn.dataset.card;
-      if (!card) return;
-      const container = btn.closest(".release-versions") as HTMLElement;
-      if (!container) return;
-      const hidden = container.querySelector(".release-hidden") as HTMLElement;
-      if (!hidden) return;
-      const isHidden = hidden.style.display === "none";
-      hidden.style.display = isHidden ? "" : "none";
-      btn.textContent = isHidden ? "Show less" : `Show ${hidden.children.length} more`;
     });
 
     loadResults();
