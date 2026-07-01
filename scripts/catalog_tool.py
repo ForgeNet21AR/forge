@@ -212,8 +212,12 @@ def apply_profile(tool: dict[str, Any], profile: dict[str, Any]) -> dict[str, An
 
     merged = dict(tool)
 
-    if str(profile.get("repo_url", "") or "") not in ("", tool["repo_url"]):
-        raise SystemExit(f"Profile repo_url mismatch for tool '{tool['id']}'")
+    profile_repo = str(profile.get("repo_url", "") or "")
+    if profile_repo not in ("", tool["repo_url"]):
+        raise SystemExit(
+            f"Profile repo_url '{profile_repo}' does not match catalog "
+            f"repo_url '{tool['repo_url']}' for tool '{tool['id']}'"
+        )
 
     project_path = str(profile.get("project_path", "") or "")
     configuration = str(profile.get("configuration", "") or "")
@@ -287,12 +291,34 @@ def command_resolve(argv: list[str]) -> int:
     tool_from_repo = find_tool(data, repo_url=normalized_repo)
 
     if tool_from_id and normalized_repo and tool_from_id["repo_url"] != normalized_repo:
-        raise SystemExit("tool_id and repo_url refer to different repositories")
+        raise SystemExit(
+            f"tool_id '{tool_id}' resolves to '{tool_from_id['repo_url']}' "
+            f"but repo_url '{repo_url}' is different; use the catalog repo_url "
+            f"or pass a different tool_id"
+        )
 
     tool = tool_from_id or tool_from_repo
+
+    # If not found by provided id or url, try deriving the tool_id from the
+    # repo_url. This handles fork URLs of cataloged tools when tool_id is
+    # empty.  The profile settings come from the catalog entry, but the
+    # repo_url stays as the fork so the build clones from there.
+    fork_repo_url: str | None = None
+    if tool is None and normalized_repo:
+        try:
+            slug = github_slug(normalized_repo)
+            derived_id = slug.split("/", 1)[1].lower()
+            catalog_tool = find_tool(data, tool_id=derived_id)
+            if catalog_tool:
+                tool = apply_profile(catalog_tool, load_profile(catalog_tool["id"]))
+                fork_repo_url = normalized_repo
+        except SystemExit:
+            pass
+
     if tool:
-        tool = apply_profile(tool, load_profile(tool["id"]))
-        repo_url_value = tool["repo_url"]
+        if fork_repo_url is None:
+            tool = apply_profile(tool, load_profile(tool["id"]))
+        repo_url_value = fork_repo_url if fork_repo_url else tool["repo_url"]
         tool_id_value = tool["id"]
         cataloged = "true"
         enabled = "true" if tool["enabled"] else "false"
@@ -313,8 +339,12 @@ def command_resolve(argv: list[str]) -> int:
         profile = load_profile(tool_id_value)
         cataloged = "false"
         enabled = "true"
-        if str(profile.get("repo_url", "") or "") not in ("", repo_url_value):
-            raise SystemExit(f"Profile repo_url mismatch for tool '{tool_id_value}'")
+        profile_repo = str(profile.get("repo_url", "") or "")
+        if profile_repo not in ("", repo_url_value):
+            raise SystemExit(
+                f"Profile repo_url '{profile_repo}' does not match "
+                f"repo_url '{repo_url_value}' for tool '{tool_id_value}'"
+            )
         project_path = str(profile.get("project_path", "") or "")
         configuration = str(profile.get("configuration", "Release") or "Release")
         target_framework = str(profile.get("target_framework", "") or "")

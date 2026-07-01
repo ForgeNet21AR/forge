@@ -621,6 +621,53 @@ jobs:
             }
           }
 
+      - name: Fix package reference paths
+        working-directory: ${{ github.workspace }}\target
+        run: |
+          $targetDir = (Get-Location).Path
+          $packagesDir = Join-Path $targetDir "packages"
+
+          if (Test-Path $packagesDir) {
+            $restoredPkgs = @{}
+            Get-ChildItem $packagesDir -Directory | ForEach-Object {
+              $idx = $_.Name.LastIndexOf('.')
+              if ($idx -gt 0 -and $idx -lt $_.Name.Length - 1) {
+                $base = $_.Name.Substring(0, $idx)
+                $ver = $_.Name.Substring($idx + 1)
+                if ($ver -match '^\d') {
+                  $restoredPkgs[$base.ToLowerInvariant()] = $_.Name
+                }
+              }
+            }
+
+            if ($restoredPkgs.Count -gt 0) {
+              Get-ChildItem $targetDir -Recurse -Include *.csproj, *.vbproj | ForEach-Object {
+                $path = $_.FullName
+                $text = Get-Content $path -Raw
+                $changed = $false
+
+                $text = [regex]::Replace($text, '(?<=<HintPath>[^<]*\\)([^\\]+?\.[\d][^\\]*)(?=\\[^<]*</HintPath>)', {
+                  param($m)
+                  $dir = $m.Groups[1].Value
+                  $dot = $dir.LastIndexOf('.')
+                  if ($dot -gt 0) {
+                    $base = $dir.Substring(0, $dot).ToLowerInvariant()
+                    if ($restoredPkgs.ContainsKey($base) -and $restoredPkgs[$base] -ne $dir) {
+                      $changed = $true
+                      Write-Host "  $($_.Name): HintPath $dir -> $($restoredPkgs[$base])"
+                      return $restoredPkgs[$base]
+                    }
+                  }
+                  return $dir
+                })
+
+                if ($changed) {
+                  Set-Content $path $text -Encoding UTF8
+                }
+              }
+            }
+          }
+
       - name: Build project
         working-directory: ${{ github.workspace }}\target
         run: |
