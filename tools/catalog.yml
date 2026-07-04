@@ -266,4 +266,9 @@ tools:
     enabled: true
     default_configuration: Release
     version_strategy: tag_then_commit
+  - id: sharpexclusionfinder
+    repo_url: https://github.com/friends-security/sharpexclusionfinder
+    enabled: true
+    default_configuration: Release
+    version_strategy: tag_then_commit
 

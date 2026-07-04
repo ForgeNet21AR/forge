@@ -1,0 +1,13 @@
+{
+  "tool_id": "sharpexclusionfinder",
+  "repo_url": "https://github.com/friends-security/sharpexclusionfinder",
+  "project_path": "SharpExclusionFinder.sln",
+  "configuration": "Release",
+  "target_framework": "",
+  "version_strategy": "tag_then_commit",
+  "restore_mode": "msbuild_restore",
+  "build_mode": "solution_default_output",
+  "asset_include": null,
+  "asset_exclude": null
+}
+
