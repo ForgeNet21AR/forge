@@ -221,13 +221,14 @@ jobs:
           fi
 
           safe_version="$(printf '%s' "$version_label" | sed 's/[^0-9A-Za-z._-]/-/g')"
-          release_tag="tool/$tool_id/$short_commit"
+          repo_owner="$(echo "$repo_url" | sed -n 's|https://github.com/\([^/]*\)/.*|\1|p')"
+          release_tag="tool/$tool_id/$repo_owner/$short_commit"
           if [ "$safe_version" = "$short_commit" ]; then
-            release_name="$tool_id - $short_commit"
+            release_name="$tool_id - $short_commit ($repo_owner)"
           else
-            release_name="$tool_id - $version_label"
+            release_name="$tool_id - $version_label ($repo_owner)"
           fi
-          asset_prefix="${tool_id}_${short_commit}"
+          asset_prefix="${tool_id}_${repo_owner}_${short_commit}"
           build_key="${repo_url}@${resolved_commit}"
 
           echo "resolved_commit=$resolved_commit" >> "$GITHUB_OUTPUT"
