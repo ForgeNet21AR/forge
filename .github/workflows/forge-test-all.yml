@@ -38,6 +38,7 @@ jobs:
     if: ${{ fromJson(needs.prepare.outputs.matrix).include[0] != null }}
     strategy:
       fail-fast: false
+      max-parallel: 3
       matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
 
     uses: ./.github/workflows/forge-build.yml
