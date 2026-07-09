@@ -814,6 +814,13 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.release-card:hover {
+  border-color: rgba(107, 140, 174, 0.3);
+  background: #202328;
 }
 
 .release-versions {
