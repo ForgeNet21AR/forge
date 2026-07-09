@@ -212,13 +212,6 @@ def apply_profile(tool: dict[str, Any], profile: dict[str, Any]) -> dict[str, An
 
     merged = dict(tool)
 
-    profile_repo = str(profile.get("repo_url", "") or "")
-    if profile_repo not in ("", tool["repo_url"]):
-        raise SystemExit(
-            f"Profile repo_url '{profile_repo}' does not match catalog "
-            f"repo_url '{tool['repo_url']}' for tool '{tool['id']}'"
-        )
-
     project_path = str(profile.get("project_path", "") or "")
     configuration = str(profile.get("configuration", "") or "")
     target_framework = str(profile.get("target_framework", "") or "")
