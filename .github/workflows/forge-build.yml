@@ -944,9 +944,21 @@ jobs:
           }
           $projectPath = $projectPath -replace '\\', '/'
 
+          # Use the catalog repo_url when the tool is already cataloged, so
+          # fork builds don't overwrite it and break profile validation.
+          $resolvedRepoUrl = "${{ needs.preflight.outputs.repo_url }}"
+          $toolId = "${{ needs.preflight.outputs.tool_id }}"
+          $catalogPath = Join-Path "${{ github.workspace }}" "tools\catalog.yml"
+          if (Test-Path $catalogPath) {
+            $catContent = Get-Content $catalogPath -Raw
+            if ($catContent -match "(?m)^\s+- id:\s+$([regex]::Escape($toolId))\s*\n\s+repo_url:\s+(\S+)") {
+              $resolvedRepoUrl = $matches[1]
+            }
+          }
+
           $profile = [ordered]@{
-            tool_id = "${{ needs.preflight.outputs.tool_id }}"
-            repo_url = "${{ needs.preflight.outputs.repo_url }}"
+            tool_id = $toolId
+            repo_url = $resolvedRepoUrl
             project_path = $projectPath
             configuration = $cfg
             target_framework = $fw
@@ -957,7 +969,7 @@ jobs:
             asset_exclude = if ([string]::IsNullOrWhiteSpace($excludeRaw)) { @() } else { $excludeRaw.Split(",", [System.StringSplitOptions]::RemoveEmptyEntries) | ForEach-Object { $_.Trim() } }
           }
 
-          $profilePath = Join-Path $profileDir "${{ needs.preflight.outputs.tool_id }}.json"
+          $profilePath = Join-Path $profileDir "$toolId.json"
           $profile | ConvertTo-Json -Depth 5 | Set-Content $profilePath -Encoding UTF8
 
       - name: Commit build profile and catalog
